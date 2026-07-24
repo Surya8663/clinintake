@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Secrets and keys
+.env
+*.env
+.secrets.baseline
+
+# Clinical doc store (encrypted blobs only, not the directory)
+clinical-doc-store/*.enc
+test-clinical-doc-store/
+
+# pytest / mypy / ruff caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Docker volumes (not tracked)
+postgres_data/
+redis_data/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

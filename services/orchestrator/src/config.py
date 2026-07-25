@@ -29,6 +29,8 @@ class OrchestratorSettings(BaseSettings):
     guideline_retrieval_service_url: str = Field(default="http://localhost:8011")
     audit_service_url: str = Field(default="http://localhost:8012")
     care_gap_agent_url: str = Field(default="http://localhost:8013")
+    referral_drafting_agent_url: str = Field(default="http://localhost:8014")
+    clinical_workspace_url: str = Field(default="http://localhost:8015")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

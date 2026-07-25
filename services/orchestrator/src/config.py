@@ -34,6 +34,7 @@ class OrchestratorSettings(BaseSettings):
     fhir_integration_service_url: str = Field(default="http://localhost:8006")
     failure_queue_service_url: str = Field(default="http://localhost:8016")
     notification_system_url: str = Field(default="http://localhost:8017")
+    iam_service_url: str = Field(default="http://localhost:8018")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

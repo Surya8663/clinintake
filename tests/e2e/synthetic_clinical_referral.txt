@@ -1,0 +1,32 @@
+CLINICAL REFERRAL & DISCHARGE SUMMARY (SYNTHETIC / TEST DATA ONLY)
+====================================================================
+Patient Name: Johnathan Doe
+Date of Birth: 1968-04-12
+MRN / Patient ID: SYN-99482
+Gender: Male
+Encounter Date: 2026-07-25
+
+VITAL SIGNS:
+- Blood Pressure: 138/88 mmHg
+- Systolic BP: 94 mmHg
+- Heart Rate: 88 bpm
+- Respiratory Rate: 22 breaths/min
+- Body Temperature: 37.2 °C
+- Oxygen Saturation: 96% on room air
+
+DIAGNOSIS & ACTIVE PROBLEMS:
+1. Type 2 Diabetes Mellitus (ICD-10: E11.9, SNOMED: 44054006)
+   - Last HbA1c: 8.2%
+2. Primary Essential Hypertension (ICD-10: I10)
+
+CURRENT MEDICATIONS:
+- Metformin 500mg PO BID (RxNorm: 860975)
+- Lisinopril 10mg PO Daily (RxNorm: 314076)
+
+PREVIOUS PREVENTIVE CARE & SCREENING HISTORY:
+- Colorectal Cancer Screening (Colonoscopy): 2021-06-15
+  (Status: Overdue for repeat screening > 3 years)
+
+CLINICAL REFERRAL REASON:
+Referred to Gastroenterology for evaluation of overdue colorectal cancer screening and routine care gap management.
+====================================================================

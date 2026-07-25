@@ -79,6 +79,26 @@ services:
       timeout: 5s
       retries: 5
 
+  ocr-service:
+    build:
+      context: ./services/ocr-service
+    ports:
+      - "8004:8004"
+    environment:
+      - SERVICE_PORT=8004
+      - LOG_LEVEL=INFO
+
+  extraction-agent:
+    build:
+      context: ./services/extraction-agent
+    ports:
+      - "8002:8002"
+    environment:
+      - SERVICE_PORT=8002
+      - OCR_SERVICE_URL=http://ocr-service:8004
+      - CONFIDENCE_THRESHOLD=0.70
+      - LOG_LEVEL=INFO
+
 volumes:
   postgres_data:
   redis_data:

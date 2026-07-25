@@ -236,6 +236,16 @@ services:
       - SLA_LATENCY_THRESHOLD_MS=2000.0
       - LOG_LEVEL=INFO
 
+  iam-service:
+    build:
+      context: ./services/iam-service
+    ports:
+      - "8018:8018"
+    environment:
+      - SERVICE_PORT=8018
+      - ACCESS_TOKEN_EXPIRE_MINUTES=15
+      - LOG_LEVEL=INFO
+
 volumes:
   postgres_data:
   redis_data:

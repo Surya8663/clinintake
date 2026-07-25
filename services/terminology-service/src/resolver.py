@@ -1,4 +1,5 @@
 import httpx
+import difflib
 from typing import Optional, Tuple
 from src.models import TerminologyMapResponse
 from src.config import settings
@@ -27,8 +28,14 @@ CLINICAL_LOINC_INDEX = {
     "systolic blood pressure": ("8480-6", "Systolic blood pressure", 0.95),
 }
 
+CLINICAL_RXNORM_INDEX = {
+    "lisinopril": ("314076", "Lisinopril 10 MG Oral Tablet", 0.95),
+    "metformin": ("860975", "Metformin hydrochloride 500 MG Oral Tablet", 0.95),
+    "atorvastatin": ("617314", "Atorvastatin 20 MG Oral Tablet", 0.95),
+}
+
 async def map_rxnorm_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]:
-    """Queries NLM RxNav REST API for live RxCUI resolution."""
+    """Queries NLM RxNav REST API for live RxCUI resolution with fuzzy index fallback."""
     url = f"{settings.rxnav_api_base_url}/rxcui.json"
     params = {"name": term}
     try:
@@ -40,7 +47,6 @@ async def map_rxnorm_term(term: str) -> Tuple[Optional[str], Optional[str], floa
                 rxcui_list = rxcui_group.get("rxnormId", [])
                 if rxcui_list:
                     rxcui = rxcui_list[0]
-                    # Fetch concept properties
                     prop_url = f"{settings.rxnav_api_base_url}/rxcui/{rxcui}/properties.json"
                     prop_resp = await client.get(prop_url)
                     display_name = term
@@ -60,23 +66,29 @@ async def map_rxnorm_term(term: str) -> Tuple[Optional[str], Optional[str], floa
                     rxcui = cand.get("rxcui")
                     cand_name = cand.get("name", term)
                     score = float(cand.get("score", 50)) / 100.0
-                    return rxcui, cand_name, round(min(score, 0.95), 2), "NLM_RxNav_Approximate"
+                    if score >= 0.70:
+                        return rxcui, cand_name, round(min(score, 0.95), 2), "NLM_RxNav_Approximate"
     except Exception as e:
         logger.warning(f"NLM RxNav API request failed or timed out: {e}")
         
-    # Local fallback for offline/test environment
+    # Local fallback for offline/test environment with fuzzy matching for misspelled drug names
     clean_term = term.lower().strip()
-    if "lisinopril" in clean_term:
-        return "314076", "Lisinopril 10 MG Oral Tablet", 0.95, "RxNorm_Index"
-    elif "metformin" in clean_term:
-        return "860975", "Metformin hydrochloride 500 MG Oral Tablet", 0.95, "RxNorm_Index"
-    elif "atorvastatin" in clean_term:
-        return "617314", "Atorvastatin 20 MG Oral Tablet", 0.95, "RxNorm_Index"
-        
+    for key, (rxcui, name, conf) in CLINICAL_RXNORM_INDEX.items():
+        if key in clean_term:
+            return rxcui, name, conf, "RxNorm_Index"
+
+    # Fuzzy matching for misspelled drug names (e.g. metformn, lisinoprl)
+    close_matches = difflib.get_close_matches(clean_term, CLINICAL_RXNORM_INDEX.keys(), n=1, cutoff=0.65)
+    if close_matches:
+        matched_key = close_matches[0]
+        rxcui, name, conf = CLINICAL_RXNORM_INDEX[matched_key]
+        logger.info(f"Fuzzy terminology match for misspelled drug '{term}' -> '{matched_key}'")
+        return rxcui, name, round(conf * 0.88, 2), "RxNorm_Fuzzy_Index"
+
     return None, None, 0.0, "NLM_RxNav_API"
 
 def map_snomed_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]:
-    """Normalizes term to SNOMED CT code system."""
+    """Normalizes term to SNOMED CT code system with exact and fuzzy matching."""
     clean_term = term.lower().strip()
     if clean_term in CLINICAL_SNOMED_INDEX:
         code, name, conf = CLINICAL_SNOMED_INDEX[clean_term]
@@ -85,11 +97,19 @@ def map_snomed_term(term: str) -> Tuple[Optional[str], Optional[str], float, str
     for key, (code, name, conf) in CLINICAL_SNOMED_INDEX.items():
         if key in clean_term or clean_term in key:
             return code, name, round(conf * 0.85, 2), "SNOMED_CT_Index"
-            
+
+    # Fuzzy matching for misspelled condition names
+    close_matches = difflib.get_close_matches(clean_term, CLINICAL_SNOMED_INDEX.keys(), n=1, cutoff=0.65)
+    if close_matches:
+        matched_key = close_matches[0]
+        code, name, conf = CLINICAL_SNOMED_INDEX[matched_key]
+        logger.info(f"Fuzzy terminology match for misspelled condition '{term}' -> '{matched_key}'")
+        return code, name, round(conf * 0.85, 2), "SNOMED_CT_Fuzzy_Index"
+
     return None, None, 0.0, "SNOMED_CT_Index"
 
 def map_loinc_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]:
-    """Normalizes term to LOINC code system."""
+    """Normalizes term to LOINC code system with exact and fuzzy matching."""
     clean_term = term.lower().strip()
     if clean_term in CLINICAL_LOINC_INDEX:
         code, name, conf = CLINICAL_LOINC_INDEX[clean_term]
@@ -98,7 +118,15 @@ def map_loinc_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]
     for key, (code, name, conf) in CLINICAL_LOINC_INDEX.items():
         if key in clean_term or clean_term in key:
             return code, name, round(conf * 0.85, 2), "LOINC_Index"
-            
+
+    # Fuzzy matching for misspelled lab names
+    close_matches = difflib.get_close_matches(clean_term, CLINICAL_LOINC_INDEX.keys(), n=1, cutoff=0.65)
+    if close_matches:
+        matched_key = close_matches[0]
+        code, name, conf = CLINICAL_LOINC_INDEX[matched_key]
+        logger.info(f"Fuzzy terminology match for misspelled lab '{term}' -> '{matched_key}'")
+        return code, name, round(conf * 0.85, 2), "LOINC_Fuzzy_Index"
+
     return None, None, 0.0, "LOINC_Index"
 
 async def resolve_terminology(term: str, code_system: str) -> TerminologyMapResponse:

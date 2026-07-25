@@ -65,9 +65,16 @@ async def query_audit_trail(
     document_id: Optional[str] = Query(None, description="Filter by document ID"),
     service_name: Optional[str] = Query(None, description="Filter by service name"),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
-    limit: int = Query(50, ge=1, le=500)
+    limit: int = Query(50, ge=1, le=500),
+    x_user_scopes: Optional[str] = Header(None, alias="X-User-Scopes")
 ):
-    """Exposes query API for Compliance Dashboard to retrieve signed audit logs."""
+    """Exposes query API for Compliance Dashboard to retrieve signed audit logs, enforcing 'audit:read' RBAC scope."""
+    if x_user_scopes is not None:
+        user_scopes = [s.strip() for s in x_user_scopes.split(",")]
+        if "audit:read" not in user_scopes:
+            logger.warning(f"RBAC Scope Violation: Access denied for audit trail query. Required scope 'audit:read' missing.")
+            raise HTTPException(status_code=403, detail="Forbidden: Missing required RBAC scope 'audit:read'")
+
     await init_db()
     async with AsyncSession(engine) as session:
         stmt = select(AuditVaultRecord)

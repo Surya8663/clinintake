@@ -1,7 +1,7 @@
 import os
 import datetime
-from typing import List, Dict, Any
-from fastapi import FastAPI, HTTPException, Body
+from typing import List, Dict, Any, Optional
+from fastapi import FastAPI, HTTPException, Body, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -121,8 +121,18 @@ async def edit_referral_text(document_id: str, body: ReferralEditRequest):
     return {"status": "updated", "document_id": document_id, "updated_text": body.edited_referral_text}
 
 @app.post("/workspace/decision/{document_id}", response_model=DecisionSubmitResponse)
-async def submit_clinician_decision(document_id: str, body: DecisionSubmitRequest):
-    """Submits clinician decision (APPROVED or REJECTED) with digital signature metadata and emits Signed Approval event."""
+async def submit_clinician_decision(
+    document_id: str,
+    body: DecisionSubmitRequest,
+    x_user_scopes: Optional[str] = Header(None, alias="X-User-Scopes")
+):
+    """Submits clinician decision (APPROVED or REJECTED) with digital signature metadata and enforces 'referral:approve' RBAC scope."""
+    if x_user_scopes is not None:
+        user_scopes = [s.strip() for s in x_user_scopes.split(",")]
+        if "referral:approve" not in user_scopes:
+            logger.warning(f"RBAC Scope Violation: Access denied for document_id={document_id}. Required scope 'referral:approve' missing.")
+            raise HTTPException(status_code=403, detail="Forbidden: Missing required RBAC scope 'referral:approve'")
+
     if document_id not in REVIEW_DATABASE:
         await get_document_findings(document_id)
 

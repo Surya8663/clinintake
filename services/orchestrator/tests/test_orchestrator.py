@@ -33,6 +33,7 @@ def test_valid_transitions():
     assert wf.state == "awaiting_approval"
     
     # Transition: awaiting_approval -> writing_ehr
+    wf.context["signed_approval"] = True
     transition_workflow(wf, "approve")
     assert wf.state == "writing_ehr"
     

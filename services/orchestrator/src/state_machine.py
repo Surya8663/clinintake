@@ -1,6 +1,10 @@
 from transitions import Machine, MachineError
 from src.logger import logger
 
+class UnapprovedEHRWriteError(Exception):
+    """Raised when an attempt to transition to writing_ehr occurs without signed clinician approval."""
+    pass
+
 class DocumentWorkflow:
     def __init__(self, document_id: str, state: str = "received", context: dict = None):
         self.document_id = document_id
@@ -33,7 +37,7 @@ class WorkflowMachine:
         {"trigger": "validation_needs_review", "source": "validating", "dest": "awaiting_approval"},
         {"trigger": "validation_fail", "source": "validating", "dest": "rejected"},
         
-        {"trigger": "reasoning_success", "source": "reasoning", "dest": "writing_ehr"},
+        {"trigger": "reasoning_success", "source": "reasoning", "dest": "awaiting_approval"},
         {"trigger": "reasoning_needs_review", "source": "reasoning", "dest": "awaiting_approval"},
         {"trigger": "reasoning_fail", "source": "reasoning", "dest": "escalated"},
         
@@ -63,8 +67,14 @@ class WorkflowMachine:
 def transition_workflow(model: DocumentWorkflow, trigger: str, *args, **kwargs) -> DocumentWorkflow:
     """
     Attempts to trigger a transition on the document workflow model.
-    Raises MachineError if transition is illegal.
+    Raises MachineError if transition is illegal, or UnapprovedEHRWriteError if EHR write is attempted without approval.
     """
+    if trigger == "approve" or trigger == "write_ehr":
+        is_signed = model.context.get("signed_approval") or kwargs.get("signed_approval")
+        if not is_signed:
+            logger.error(f"Governance Violation: Blocked attempt to write EHR without signed approval for doc_id={model.document_id}")
+            raise UnapprovedEHRWriteError("Governance Violation: Cannot transition to writing_ehr without genuine Signed Approval event.")
+
     machine = WorkflowMachine.get_machine(model)
     logger.info(
         f"Attempting transition: {trigger}",

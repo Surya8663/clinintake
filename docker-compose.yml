@@ -165,6 +165,17 @@ services:
       - SERVICE_PORT=8005
       - LOG_LEVEL=INFO
 
+  audit-service:
+    build:
+      context: ./services/audit-service
+    ports:
+      - "8012:8012"
+    environment:
+      - SERVICE_PORT=8012
+      - HMAC_SECRET_KEY=clinintake_kms_master_audit_secret_key_2026
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - LOG_LEVEL=INFO
+
 volumes:
   postgres_data:
   redis_data:

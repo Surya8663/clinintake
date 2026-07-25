@@ -246,6 +246,25 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=15
       - LOG_LEVEL=INFO
 
+  compliance-dashboard:
+    build:
+      context: ./services/compliance-dashboard
+    ports:
+      - "8019:8019"
+    environment:
+      - SERVICE_PORT=8019
+      - AUDIT_SERVICE_URL=http://audit-service:8012
+      - LOG_LEVEL=INFO
+
+  metrics-dashboard:
+    build:
+      context: ./services/metrics-dashboard
+    ports:
+      - "8020:8020"
+    environment:
+      - SERVICE_PORT=8020
+      - LOG_LEVEL=INFO
+
 volumes:
   postgres_data:
   redis_data:

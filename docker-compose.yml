@@ -216,6 +216,26 @@ services:
       - SERVICE_PORT=8015
       - LOG_LEVEL=INFO
 
+  failure-queue-service:
+    build:
+      context: ./services/failure-queue-service
+    ports:
+      - "8016:8016"
+    environment:
+      - SERVICE_PORT=8016
+      - MAX_RETRIES=3
+      - LOG_LEVEL=INFO
+
+  notification-system:
+    build:
+      context: ./services/notification-system
+    ports:
+      - "8017:8017"
+    environment:
+      - SERVICE_PORT=8017
+      - SLA_LATENCY_THRESHOLD_MS=2000.0
+      - LOG_LEVEL=INFO
+
 volumes:
   postgres_data:
   redis_data:

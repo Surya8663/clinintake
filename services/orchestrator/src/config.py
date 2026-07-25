@@ -31,6 +31,7 @@ class OrchestratorSettings(BaseSettings):
     care_gap_agent_url: str = Field(default="http://localhost:8013")
     referral_drafting_agent_url: str = Field(default="http://localhost:8014")
     clinical_workspace_url: str = Field(default="http://localhost:8015")
+    fhir_integration_service_url: str = Field(default="http://localhost:8006")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

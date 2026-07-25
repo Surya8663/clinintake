@@ -118,6 +118,19 @@ services:
       - SERVICE_PORT=8003
       - LOG_LEVEL=INFO
 
+  fhir-integration-service:
+    build:
+      context: ./services/fhir-integration-service
+    ports:
+      - "8006:8006"
+    environment:
+      - SERVICE_PORT=8006
+      - EHR_CLIENT_SECRET=sec_kms_ehr_write_token_2026_x99
+      - HAPI_FHIR_BASE_URL=http://hapi-fhir:8080/fhir
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=INFO
+
   clinical-rules-engine:
     build:
       context: ./services/clinical-rules-engine

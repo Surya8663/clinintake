@@ -37,6 +37,7 @@ class OrchestratorSettings(BaseSettings):
     iam_service_url: str = Field(default="http://localhost:8018")
     compliance_dashboard_url: str = Field(default="http://localhost:8019")
     metrics_dashboard_url: str = Field(default="http://localhost:8020")
+    guardrail_service_url: str = Field(default="http://localhost:8021")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

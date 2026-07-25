@@ -15,13 +15,17 @@ class OrchestratorSettings(BaseSettings):
     kafka_bootstrap_servers: str = Field(default="localhost:9092")
     audit_topic: str = Field(default="audit-events")
     
-    # Downstream service URLs (placeholders/contracts)
+    # Downstream service URLs
     document_gateway_url: str = Field(default="http://localhost:8001")
     extraction_agent_url: str = Field(default="http://localhost:8002")
     validation_agent_url: str = Field(default="http://localhost:8003")
-    reasoning_agent_url: str = Field(default="http://localhost:8004")
+    ocr_service_url: str = Field(default="http://localhost:8004")
     safety_sub_agent_url: str = Field(default="http://localhost:8005")
     ehr_writer_url: str = Field(default="http://localhost:8006")
+    terminology_service_url: str = Field(default="http://localhost:8007")
+    clinical_rules_engine_url: str = Field(default="http://localhost:8008")
+    temporal_reasoning_engine_url: str = Field(default="http://localhost:8009")
+    drug_interaction_service_url: str = Field(default="http://localhost:8010")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

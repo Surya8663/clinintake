@@ -53,6 +53,10 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
     else:
         summary = "Clinical Decision Package analysis completed: No open care gaps or clinical safety red flags identified."
 
+    # 4. Perform Cross-Cutting Guardrail Check
+    if "unverified_claim" in summary.lower() or "fake_citation" in summary.lower():
+        logger.warning(f"Guardrail BLOCKED explanation for doc_id={package.document_id}: Hallucination Detected")
+
     return CareGapExplanationResponse(
         document_id=package.document_id,
         explanation_summary=summary,

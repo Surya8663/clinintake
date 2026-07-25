@@ -2,7 +2,7 @@ import uuid
 import json
 from contextlib import asynccontextmanager
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, status, Header
 from sqlalchemy.future import select
 
 from src.config import settings

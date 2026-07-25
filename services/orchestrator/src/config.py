@@ -32,6 +32,8 @@ class OrchestratorSettings(BaseSettings):
     referral_drafting_agent_url: str = Field(default="http://localhost:8014")
     clinical_workspace_url: str = Field(default="http://localhost:8015")
     fhir_integration_service_url: str = Field(default="http://localhost:8006")
+    failure_queue_service_url: str = Field(default="http://localhost:8016")
+    notification_system_url: str = Field(default="http://localhost:8017")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

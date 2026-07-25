@@ -37,3 +37,6 @@ class ExtractResponse(BaseModel):
     extracted_data: ExtractionData
     fhir_resources: List[Dict[str, Any]] = Field(default_factory=list, description="Validated FHIR R4 JSON resources")
     overall_confidence: float
+    safety_interrupt_triggered: bool = Field(False, description="True if emergency safety interrupt lane was triggered")
+    safety_response: Optional[Dict[str, Any]] = Field(None, description="Direct Safety Sub-Agent evaluation result")
+    safety_interrupt_latency_ms: Optional[float] = Field(None, description="Direct Safety interrupt call latency in ms (< 2000ms SLA)")

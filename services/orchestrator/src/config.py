@@ -35,6 +35,8 @@ class OrchestratorSettings(BaseSettings):
     failure_queue_service_url: str = Field(default="http://localhost:8016")
     notification_system_url: str = Field(default="http://localhost:8017")
     iam_service_url: str = Field(default="http://localhost:8018")
+    compliance_dashboard_url: str = Field(default="http://localhost:8019")
+    metrics_dashboard_url: str = Field(default="http://localhost:8020")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

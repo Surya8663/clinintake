@@ -176,6 +176,15 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
       - LOG_LEVEL=INFO
 
+  care-gap-explanation-agent:
+    build:
+      context: ./services/care-gap-explanation-agent
+    ports:
+      - "8013:8013"
+    environment:
+      - SERVICE_PORT=8013
+      - LOG_LEVEL=INFO
+
 volumes:
   postgres_data:
   redis_data:

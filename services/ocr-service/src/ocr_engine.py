@@ -76,64 +76,16 @@ def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPag
         return process_spatial_layout_fallback(image, page_number)
 
 def process_spatial_layout_fallback(image: Image.Image, page_number: int) -> OCRPage:
-    """Fallback spatial OCR generator when Tesseract system binary is missing."""
+    """Fallback when Tesseract system binary is missing — returns empty OCR page, no fabricated data."""
     width, height = image.size
-    # Fallback reads image/mock lines and creates spatial bounding boxes based on position
-    words: List[OCRWord] = []
-    lines: List[OCRLine] = []
-    
-    # Simple default spatial text if raw image
-    sample_lines = [
-        "Patient ID: PAT-10928 Name: John Doe DOB: 1982-04-12",
-        "Diagnosis: Essential Hypertension (ICD-10: I10) - High Confidence",
-        "Medication: Lisinopril 10mg oral daily (RxNorm: 314076)",
-        "Lab: HbA1c 6.5 % (LOINC: 4548-4) Status: Normal"
-    ]
-
-    curr_y = 50
-    for l_idx, line_str in enumerate(sample_lines):
-        word_tokens = line_str.split()
-        curr_x = 40
-        line_words = []
-        for w_idx, token in enumerate(word_tokens):
-            w_width = len(token) * 12
-            bbox = BoundingBox(
-                x_min=curr_x,
-                y_min=curr_y,
-                x_max=curr_x + w_width,
-                y_max=curr_y + 20
-            )
-            w_obj = OCRWord(
-                text=token,
-                confidence=0.95,
-                bbox=bbox,
-                page_number=page_number
-            )
-            line_words.append(w_obj)
-            words.append(w_obj)
-            curr_x += w_width + 8
-
-        line_bbox = BoundingBox(
-            x_min=min(w.bbox.x_min for w in line_words),
-            y_min=min(w.bbox.y_min for w in line_words),
-            x_max=max(w.bbox.x_max for w in line_words),
-            y_max=max(w.bbox.y_max for w in line_words)
-        )
-        lines.append(OCRLine(
-            line_text=line_str,
-            bbox=line_bbox,
-            words=line_words
-        ))
-        curr_y += 35
-
-    full_text = "\n".join(sample_lines)
+    logger.error(f"Tesseract unavailable: returning empty OCR page for page {page_number}. No text extracted.")
     return OCRPage(
         page_number=page_number,
         width=width,
         height=height,
-        text=full_text,
-        words=words,
-        lines=lines
+        text="",
+        words=[],
+        lines=[]
     )
 
 def process_pdf_with_pypdf(file_bytes: bytes) -> List[OCRPage]:

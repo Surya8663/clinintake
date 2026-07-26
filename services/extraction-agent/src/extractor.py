@@ -1,4 +1,3 @@
-import re
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.models import (
@@ -68,72 +67,112 @@ def perform_quote_grounded_extraction(
     ocr_words: Optional[List[Dict[str, Any]]] = None,
     threshold_override: Optional[float] = None
 ) -> ExtractionData:
-    """Extracts clinical entities using Quote-Based Grounding and confidence-threshold filtering."""
+    """Extracts clinical entities using LLM-based structured extraction with quote grounding."""
+    from src.llm_client import call_llm_extraction
+
     text = ocr_text or ""
     threshold = threshold_override if threshold_override is not None else settings.confidence_threshold
-    
+
+    if not text.strip():
+        return ExtractionData(
+            patient_id=create_grounded_field("", "", 0.0, ocr_words, threshold),
+            diagnoses=[],
+            medications=[],
+            labs=[]
+        )
+
+    # Call the real LLM for structured extraction
+    llm_result = call_llm_extraction(ocr_text=text, ocr_words=ocr_words)
+
+    # --- Map LLM output through existing create_grounded_field() ---
+
     # 1. Patient ID
-    pat_match = re.search(r'(?:Patient\s*ID[:\s]+|PAT[:\s\-]*)(([A-Z0-9\-]+))', text, re.IGNORECASE)
-    if pat_match:
-        full_match = pat_match.group(0).strip()
-        pat_id = pat_match.group(1).strip()
-        # If pat_id matches string like 'PAT-UNKNOWN', set low confidence
-        conf = 0.30 if "unknown" in pat_id.lower() or "unclear" in pat_id.lower() else 0.95
-        pat_field = create_grounded_field(pat_id, full_match, conf, ocr_words, threshold)
-    else:
-        pat_field = create_grounded_field("PAT-UNKNOWN", "Patient ID", 0.30, ocr_words, threshold)
+    pat_data = llm_result.get("patient_id", {})
+    pat_field = create_grounded_field(
+        raw_value=pat_data.get("value", ""),
+        literal_quote=pat_data.get("literal_quote", ""),
+        confidence=float(pat_data.get("confidence", 0.0)),
+        ocr_words=ocr_words,
+        custom_threshold=threshold
+    )
 
     # 2. Diagnoses
     diagnoses: List[GroundedDiagnosis] = []
-    diag_matches = re.finditer(r'Diagnosis:\s*([^(\n]+)(?:\s*\((?:ICD-10:\s*)?([A-Z0-9\.]+)\))?(?:\s*-\s*(High|Low|Ambiguous)\s*Confidence)?', text, re.IGNORECASE)
-    for m in diag_matches:
-        name_val = m.group(1).strip()
-        quote_val = m.group(0).strip()
-        icd_val = m.group(2) or "I10"
-        conf_str = (m.group(3) or "").lower()
-        
-        conf = 0.45 if conf_str in ["low", "ambiguous"] or "unclear" in name_val.lower() else 0.95
-        
-        name_field = create_grounded_field(name_val, quote_val, conf, ocr_words, threshold)
-        icd_field = create_grounded_field(icd_val, quote_val, conf, ocr_words, threshold)
-        diagnoses.append(GroundedDiagnosis(name=name_field, icd10_code=icd_field))
-
-    # Fallback diagnosis detection if no explicit match
-    if not diagnoses and "hypertension" in text.lower():
-        name_field = create_grounded_field("Essential Hypertension", "hypertension", 0.90, ocr_words, threshold)
-        icd_field = create_grounded_field("I10", "hypertension", 0.90, ocr_words, threshold)
+    for diag_data in llm_result.get("diagnoses", []):
+        name_d = diag_data.get("name", {})
+        icd_d = diag_data.get("icd10_code", {})
+        name_field = create_grounded_field(
+            raw_value=name_d.get("value", ""),
+            literal_quote=name_d.get("literal_quote", ""),
+            confidence=float(name_d.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
+        icd_field = create_grounded_field(
+            raw_value=icd_d.get("value", ""),
+            literal_quote=icd_d.get("literal_quote", ""),
+            confidence=float(icd_d.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
         diagnoses.append(GroundedDiagnosis(name=name_field, icd10_code=icd_field))
 
     # 3. Medications
     medications: List[GroundedMedication] = []
-    med_matches = re.finditer(r'Medication:\s*([^\n\(]+)(?:\s*\((?:RxNorm:\s*)?(\d+)\))?', text, re.IGNORECASE)
-    for m in med_matches:
-        raw_med = m.group(1).strip()
-        quote_val = m.group(0).strip()
-        rx_val = m.group(2) or "314076"
-        
-        # Check for ambiguity markers
-        conf = 0.40 if "ambiguous" in raw_med.lower() or "unclear" in raw_med.lower() else 0.92
-        
-        name_field = create_grounded_field(raw_med, quote_val, conf, ocr_words, threshold)
-        rx_field = create_grounded_field(rx_val, quote_val, conf, ocr_words, threshold)
-        dosage_field = create_grounded_field("10mg daily", quote_val, conf, ocr_words, threshold)
+    for med_data in llm_result.get("medications", []):
+        name_m = med_data.get("name", {})
+        rx_m = med_data.get("rxnorm_code", {})
+        dosage_m = med_data.get("dosage", {})
+        name_field = create_grounded_field(
+            raw_value=name_m.get("value", ""),
+            literal_quote=name_m.get("literal_quote", ""),
+            confidence=float(name_m.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
+        rx_field = create_grounded_field(
+            raw_value=rx_m.get("value", ""),
+            literal_quote=rx_m.get("literal_quote", ""),
+            confidence=float(rx_m.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
+        dosage_field = create_grounded_field(
+            raw_value=dosage_m.get("value", ""),
+            literal_quote=dosage_m.get("literal_quote", ""),
+            confidence=float(dosage_m.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
         medications.append(GroundedMedication(name=name_field, rxnorm_code=rx_field, dosage=dosage_field))
 
     # 4. Lab Results
     labs: List[GroundedLabResult] = []
-    lab_matches = re.finditer(r'Lab:\s*([^:\n]+?)\s*([0-9\.]+)\s*([%\w\/]+)?(?:\s*\((?:LOINC:\s*)?([0-9\-]+)\))?', text, re.IGNORECASE)
-    for m in lab_matches:
-        lab_name = m.group(1).strip()
-        lab_val = m.group(2).strip()
-        quote_val = m.group(0).strip()
-        loinc_val = m.group(4) or "4548-4"
-        
-        conf = 0.40 if "ambiguous" in text.lower() and "lab" in text.lower() else 0.95
-        
-        name_field = create_grounded_field(lab_name, quote_val, conf, ocr_words, threshold)
-        loinc_field = create_grounded_field(loinc_val, quote_val, conf, ocr_words, threshold)
-        val_field = create_grounded_field(f"{lab_val} {m.group(3) or ''}".strip(), quote_val, conf, ocr_words, threshold)
+    for lab_data in llm_result.get("labs", []):
+        name_l = lab_data.get("name", {})
+        loinc_l = lab_data.get("loinc_code", {})
+        val_l = lab_data.get("value", {})
+        name_field = create_grounded_field(
+            raw_value=name_l.get("value", ""),
+            literal_quote=name_l.get("literal_quote", ""),
+            confidence=float(name_l.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
+        loinc_field = create_grounded_field(
+            raw_value=loinc_l.get("value", ""),
+            literal_quote=loinc_l.get("literal_quote", ""),
+            confidence=float(loinc_l.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
+        val_field = create_grounded_field(
+            raw_value=val_l.get("value", ""),
+            literal_quote=val_l.get("literal_quote", ""),
+            confidence=float(val_l.get("confidence", 0.0)),
+            ocr_words=ocr_words,
+            custom_threshold=threshold
+        )
         labs.append(GroundedLabResult(name=name_field, loinc_code=loinc_field, value=val_field))
 
     return ExtractionData(
@@ -142,3 +181,4 @@ def perform_quote_grounded_extraction(
         medications=medications,
         labs=labs
     )
+

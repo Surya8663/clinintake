@@ -28,3 +28,4 @@ class CareGapExplanationResponse(BaseModel):
     care_gaps_found: List[str] = Field(default_factory=list, description="List of specific identified care gaps")
     cited_guideline_passages: List[CitationItem] = Field(default_factory=list, description="Citations directly extracted from input package passages")
     document_evidence_spans: List[DocumentSpanItem] = Field(default_factory=list, description="Document evidence spans from package")
+    generation_mode: str = Field(default="llm", description="'llm' for LLM-generated, 'deterministic_fallback' if LLM failed and deterministic template was used")

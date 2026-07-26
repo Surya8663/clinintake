@@ -84,22 +84,7 @@ async def list_review_queue():
 async def get_document_findings(document_id: str):
     """Fetches clinical findings, referral text draft, and linked spatial bounding boxes."""
     if document_id not in REVIEW_DATABASE:
-        # Create default mock entry for new document_id
-        REVIEW_DATABASE[document_id] = {
-            "document_id": document_id,
-            "patient_id": "PAT-AUTO-100",
-            "status": "awaiting_approval",
-            "created_at": datetime.datetime.utcnow().isoformat(),
-            "referral_text": f"CLINICAL REFERRAL LETTER DRAFT for {document_id}\n\nReferred to Gastroenterology for care gap screening.",
-            "evidence_spans": [
-                {
-                    "field_name": "patient_id",
-                    "source_quote": f"Patient ID: PAT-AUTO-100",
-                    "bbox": [100, 100, 300, 130]
-                }
-            ],
-            "decision": None
-        }
+        raise HTTPException(status_code=404, detail=f"No findings found for document_id={document_id}")
 
     rec = REVIEW_DATABASE[document_id]
     return DocumentFindingsResponse(
@@ -155,6 +140,8 @@ async def submit_clinician_decision(
     )
 
 # Mount static files for React frontend if folder exists
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+frontend_dir = frontend_dist if os.path.exists(frontend_dist) else os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.exists(frontend_dir):
     app.mount("/ui", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+

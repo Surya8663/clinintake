@@ -1,148 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClinIntake - Clinical Workspace</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-    body { background: #0f172a; color: #f8fafc; padding: 24px; }
-    .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #334155; margin-bottom: 24px; }
-    .header h1 { font-size: 24px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
-    .badge { background: #0284c7; color: white; font-size: 12px; padding: 4px 10px; border-radius: 9999px; }
-    .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .card-title { font-size: 16px; font-weight: 600; color: #94a3b8; margin-bottom: 16px; display: flex; justify-content: space-between; }
-    textarea { width: 100%; height: 320px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; color: #f8fafc; padding: 12px; font-family: monospace; font-size: 13px; line-height: 1.5; resize: vertical; }
-    .evidence-box { background: #0f172a; border-left: 4px solid #38bdf8; padding: 12px; border-radius: 6px; margin-bottom: 12px; }
-    .evidence-quote { font-style: italic; color: #cbd5e1; font-size: 14px; }
-    .bbox-tag { font-size: 11px; font-family: monospace; color: #38bdf8; margin-top: 6px; }
-    .actions { display: flex; gap: 12px; margin-top: 16px; justify-content: flex-end; }
-    .btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
-    .btn-approve { background: #10b981; color: white; }
-    .btn-approve:hover { background: #059669; }
-    .btn-reject { background: #ef4444; color: white; }
-    .btn-reject:hover { background: #dc2626; }
-    .btn-save { background: #3b82f6; color: white; }
-    .btn-save:hover { background: #2563eb; }
-    .status-alert { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; text-align: center; }
-    .status-approved { background: #064e3b; color: #6ee7b7; border: 1px solid #047857; }
-    .status-rejected { background: #7f1d1d; color: #fca5a5; border: 1px solid #b91c1c; }
-  </style>
-</head>
-<body>
-  <div id="root">
-    <div class="header">
-      <h1>🏥 ClinIntake — Clinical Workspace <span class="badge">PRD 5.7 Human-in-the-Loop</span></h1>
-      <div>Clinician ID: <strong>DR-SURYA-MD</strong></div>
-    </div>
-    
-    <div class="grid-layout">
-      <!-- Evidence & Spatial Bounding Box Viewer -->
-      <div class="card">
-        <div class="card-title">
-          <span>📄 Document Evidence & Spatial Coordinates</span>
-          <span>Doc ID: DOC-DEMO-001</span>
-        </div>
-        <div class="evidence-box">
-          <div class="evidence-quote">"Patient ID: PAT-99482"</div>
-          <div class="bbox-tag">Bounding Box BBox [x_min: 100, y_min: 120, x_max: 350, y_max: 150]</div>
-        </div>
-        <div class="evidence-box">
-          <div class="evidence-quote">"USPSTF Colorectal Cancer Screening: OVERDUE"</div>
-          <div class="bbox-tag">Bounding Box BBox [x_min: 100, y_min: 200, x_max: 520, y_max: 230]</div>
-        </div>
-        <div style="margin-top: 20px; font-size: 13px; color: #94a3b8;">
-          ✔ Spatial coordinates verified via pytesseract OCR.<br>
-          ✔ Quote-grounded evidence linked to FHIR R4 resource definitions.
-        </div>
-      </div>
-
-      <!-- Referral Letter Draft & Editor -->
-      <div class="card">
-        <div class="card-title">
-          <span>✏️ Draft Referral Letter Editor</span>
-          <span style="color: #10b981;">● Active Review</span>
-        </div>
-        <textarea id="referralText">CLINICAL REFERRAL LETTER (DRAFT)
-=================================
-Date: 2026-07-25
-To: Department of Gastroenterology
-Re: Patient ID: PAT-99482
-Urgency Level: URGENT
-
-Dear Specialist,
-
-I am referring PAT-99482 for colonoscopy evaluation due to overdue USPSTF screening care gap.
-Patient is 52 years old with last screening recorded > 10 years ago.
-
-Sincerely,
-Referring Clinician / ClinIntake System</textarea>
-
-        <div class="actions">
-          <button class="btn btn-save" onclick="saveEdits()">💾 Save Edits</button>
-          <button class="btn btn-reject" onclick="submitDecision('REJECTED')">❌ Reject Referral</button>
-          <button class="btn btn-approve" onclick="submitDecision('APPROVED')">✍️ Sign & Approve</button>
-        </div>
-
-        <div id="statusBox" style="display: none;" class="status-alert"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const DOC_ID = 'DOC-DEMO-001';
-    const API_BASE = 'http://localhost:8015';
-
-    async function saveEdits() {
-      const text = document.getElementById('referralText').value;
-      try {
-        const res = await fetch(`${API_BASE}/workspace/referral/${DOC_ID}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ edited_referral_text: text })
-        });
-        if (res.ok) {
-          showStatus('Referral text edits saved successfully!', 'approved');
-        }
-      } catch (err) {
-        showStatus('Saved locally in workspace context.', 'approved');
-      }
-    }
-
-    async function submitDecision(decision) {
-      try {
-        const res = await fetch(`${API_BASE}/workspace/decision/${DOC_ID}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            decision: decision,
-            clinician_id: 'DR-SURYA-MD',
-            digital_signature: 'SIG-ECDSA-2026-X99'
-          })
-        });
-        const data = await res.json();
-        if (decision === 'APPROVED') {
-          showStatus(`✍️ Signed Approval Event emitted for ${DOC_ID}! Orchestrator authorized for EHR write.`, 'approved');
-        } else {
-          showStatus(`❌ Document ${DOC_ID} REJECTED. EHR write blocked by governance rule.`, 'rejected');
-        }
-      } catch (err) {
-        if (decision === 'APPROVED') {
-          showStatus(`✍️ Signed Approval Recorded! Orchestrator authorized for EHR write.`, 'approved');
-        } else {
-          showStatus(`❌ Referral REJECTED. EHR write blocked by governance rule.`, 'rejected');
-        }
-      }
-    }
-
-    function showStatus(msg, type) {
-      const box = document.getElementById('statusBox');
-      box.style.display = 'block';
-      box.className = `status-alert status-${type}`;
-      box.innerHTML = msg;
-    }
-  </script>
-</body>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClinIntake — Clinical Workspace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-sky-500 selection:text-white min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

@@ -16,7 +16,11 @@ env/
 # Secrets and keys
 .env
 *.env
+.env.*
 .secrets.baseline
+*.db
+node_modules/
+dist/
 
 # Clinical doc store (encrypted blobs only, not the directory)
 clinical-doc-store/*.enc

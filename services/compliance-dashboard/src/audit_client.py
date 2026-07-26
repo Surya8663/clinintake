@@ -40,23 +40,12 @@ async def fetch_audit_events_via_api(
                 logger.warning(f"Audit API returned status {resp.status_code}")
                 return {"total_records": 0, "records": []}
     except Exception as e:
-        logger.warning(f"Failed to query audit-service REST API ({e}). Returning fallback response.")
+        logger.warning(f"Failed to query audit-service REST API ({e}). Service unreachable.")
         return {
-            "total_records": 1,
-            "records": [
-                {
-                    "id": 1,
-                    "event_id": "EVT-MOCK-99",
-                    "document_id": document_id or "DOC-SIM-101",
-                    "service_name": "orchestrator",
-                    "event_type": "workflow_started",
-                    "payload": {"status": "received"},
-                    "prev_hash": "GENESIS_00000000000000000000000000000000",
-                    "entry_hash": "a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890",
-                    "hmac_signature": "SIG-HMAC-VERIFIED-2026",
-                    "created_at": "2026-07-25T12:00:00Z"
-                }
-            ]
+            "total_records": 0,
+            "records": [],
+            "error": "audit-service unreachable",
+            "status": "error"
         }
 
 async def fetch_vault_integrity_via_api() -> Dict[str, Any]:
@@ -69,11 +58,8 @@ async def fetch_vault_integrity_via_api() -> Dict[str, Any]:
                 return resp.json()
     except Exception as e:
         logger.warning(f"Failed to query vault integrity API ({e})")
-    
+
     return {
-        "status": "intact",
-        "total_records": 1,
-        "tampered_records": 0,
-        "is_chain_valid": True,
-        "is_hmac_valid": True
+        "status": "unreachable",
+        "error": "vault integrity check unavailable"
     }

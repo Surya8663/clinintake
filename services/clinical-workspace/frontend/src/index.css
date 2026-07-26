@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans antialiased;
+  }
+}
+
+.glass-card {
+  @apply bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl shadow-xl;
+}
+
+.bbox-pulse {
+  animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(56, 189, 248, 0.9); box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
+  50% { border-color: rgba(56, 189, 248, 0.4); box-shadow: 0 0 4px rgba(56, 189, 248, 0.1); }
+}

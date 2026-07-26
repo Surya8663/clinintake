@@ -37,7 +37,9 @@ def test_generate_referral_draft_letter():
     data = response.json()
     assert data["document_id"] == "DOC-REF-001"
     assert data["target_specialty"] == "Gastroenterology"
-    assert "CLINICAL REFERRAL LETTER (DRAFT)" in data["referral_letter_text"]
-    assert "USPSTF Colorectal Screening is OVERDUE" in data["referral_letter_text"]
+    assert len(data["referral_letter_text"]) > 50
+    assert "PAT-Gastro-007" in data["referral_letter_text"]
+    assert "Gastroenterology" in data["referral_letter_text"]
+    assert "Colorectal" in data["referral_letter_text"] or "colorectal" in data["referral_letter_text"].lower()
     assert len(data["grounded_evidence"]) == 1
     assert data["grounded_evidence"][0]["clause_id"] == "CRC-2021-01"

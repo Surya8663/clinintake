@@ -1,84 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pipeline KPI Metrics Dashboard | ClinIntake</title>
-  <style>
-    :root {
-      --bg-dark: #0f172a;
-      --card-bg: #1e293b;
-      --accent: #38bdf8;
-      --success: #22c55e;
-      --danger: #ef4444;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-    }
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg-dark);
-      color: var(--text);
-    }
-    header {
-      background-color: var(--card-bg);
-      padding: 1.5rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #334155;
-    }
-    h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
-    .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
-    .card { background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
-    .metric-value { font-size: 2.5rem; font-weight: 700; margin: 0.5rem 0; }
-    .metric-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .val-good { color: var(--success); }
-    .val-bad { color: var(--danger); }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>📊 Clinical Intake KPI Analytics Dashboard</h1>
-  </header>
-  <div class="container">
-    <h2>System Performance Metrics (PRD Section 13)</h2>
-    <div class="grid">
-      <div class="card">
-        <div class="metric-label">Extraction Accuracy</div>
-        <div class="metric-value val-good" id="acc-val">--%</div>
-        <p style="color:var(--muted)">Evaluated against 100 labeled clinical document fields.</p>
-      </div>
-
-      <div class="card">
-        <div class="metric-label">Red-Flag Emergency Sensitivity</div>
-        <div class="metric-value val-good" id="sens-val">--%</div>
-        <p style="color:var(--muted)">Sepsis, stroke, & anaphylaxis detection against test cases.</p>
-      </div>
-
-      <div class="card">
-        <div class="metric-label">Quote Hallucination Rate</div>
-        <div class="metric-value val-good" id="hal-val">--%</div>
-        <p style="color:var(--muted)">Computed from quote-grounding citation verification.</p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    async function fetchKPIs() {
-      try {
-        const res = await fetch('/metrics/kpis');
-        const data = await res.json();
-        
-        document.getElementById('acc-val').innerText = data.extraction_accuracy.accuracy_percentage + '%';
-        document.getElementById('sens-val').innerText = data.red_flag_sensitivity.sensitivity_percentage + '%';
-        document.getElementById('hal-val').innerText = data.hallucination_rate.hallucination_rate_percentage + '%';
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    fetchKPIs();
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClinIntake — Pipeline KPI Metrics Dashboard</title>
+    <meta name="description" content="ClinIntake Pipeline KPI Analytics — extraction accuracy, red-flag sensitivity, hallucination rate metrics from real benchmark evaluations." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-white text-slate-800 font-sans antialiased selection:bg-blue-500 selection:text-white min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

@@ -44,16 +44,16 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
 
   return (
     <div className="glass-card p-4 flex flex-col h-full">
-      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <Edit3 className="w-4 h-4 text-sky-400" />
-          <h2 className="text-sm font-semibold text-slate-200">
+          <Edit3 className="w-4 h-4 text-blue-600" />
+          <h2 className="text-sm font-semibold text-slate-800">
             Draft Referral Letter Editor
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span className="text-xs font-semibold text-emerald-400">Active Review</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span className="text-xs font-semibold text-emerald-700">Active Review</span>
         </div>
       </div>
 
@@ -61,15 +61,15 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
         value={referralText}
         onChange={(e) => setReferralText(e.target.value)}
         rows={12}
-        className="w-full bg-slate-950/90 border border-slate-800 rounded-lg p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/40 resize-y leading-relaxed"
+        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all resize-y leading-relaxed placeholder:text-slate-500"
         placeholder="Enter referral draft letter text..."
       />
 
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800/80 gap-3">
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-200 gap-3">
         <button
           onClick={handleSave}
           disabled={isSaving || isSubmitting}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium text-xs transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/40"
         >
           {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           Save Edits
@@ -79,7 +79,7 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
           <button
             onClick={() => handleDecision('REJECTED')}
             disabled={isSaving || isSubmitting}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600/90 hover:bg-rose-500 text-white font-medium text-xs transition-colors border border-rose-500/30 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-medium text-xs transition-all border border-rose-500/30 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500/40"
           >
             {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
             Reject Referral
@@ -88,10 +88,10 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
           <button
             onClick={() => handleDecision('APPROVED')}
             disabled={isSaving || isSubmitting}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/20 transition-all border border-emerald-500/30 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs shadow-sm transition-all border border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           >
             {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-            Sign & Approve
+            Sign &amp; Approve
           </button>
         </div>
       </div>

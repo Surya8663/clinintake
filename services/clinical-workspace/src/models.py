@@ -25,7 +25,7 @@ class ReferralEditRequest(BaseModel):
 class DecisionSubmitRequest(BaseModel):
     decision: str = Field(..., description="'APPROVED' or 'REJECTED'")
     clinician_id: str = Field("DR-SURYA-MD", description="NPI / Clinician ID")
-    digital_signature: str = Field("SIG-ECDSA-2026-X99", description="Cryptographic digital signature string")
+    digital_signature: str = Field(..., description="Cryptographic digital signature string")
     notes: Optional[str] = None
 
 class DecisionSubmitResponse(BaseModel):

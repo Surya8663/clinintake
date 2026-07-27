@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-slate-800 font-sans antialiased;
+  }
+}
+
+.glass-card {
+  @apply bg-white border border-slate-200 rounded-xl shadow-card;
+}
+
+.glass-card:hover {
+  @apply shadow-card-lg;
+}

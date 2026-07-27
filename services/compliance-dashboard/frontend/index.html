@@ -1,107 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compliance Audit Dashboard | ClinIntake</title>
-  <style>
-    :root {
-      --bg-dark: #0f172a;
-      --card-bg: #1e293b;
-      --accent: #38bdf8;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-    }
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg-dark);
-      color: var(--text);
-    }
-    header {
-      background-color: var(--card-bg);
-      padding: 1.5rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #334155;
-    }
-    h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
-    .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-    .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; }
-    .badge-intact { background: #064e3b; color: #34d399; }
-    .card { background: var(--card-bg); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #334155; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid #334155; font-size: 0.9rem; }
-    th { color: var(--muted); }
-    code { font-family: monospace; color: var(--accent); }
-    button { background: #0284c7; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-    button:hover { background: #0369a1; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>🛡️ Compliance Audit Vault Dashboard</h1>
-    <div>
-      <span class="badge badge-intact" id="vault-status">Vault Integrity: INTACT</span>
-    </div>
-  </header>
-  <div class="container">
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2>Immutable Audit Event Log</h2>
-        <button onclick="fetchAuditLogs()">Refresh Logs</button>
-      </div>
-      <p style="color:var(--muted)">Showing signed cryptographic audit events fetched via REST API.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Event ID</th>
-            <th>Document ID</th>
-            <th>Service</th>
-            <th>Event Type</th>
-            <th>HMAC Signature</th>
-            <th>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody id="audit-table-body">
-          <tr><td colspan="6">Loading audit events...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <script>
-    async function fetchAuditLogs() {
-      try {
-        const res = await fetch('/compliance/audit-trail');
-        const data = await res.json();
-        const tbody = document.getElementById('audit-table-body');
-        tbody.innerHTML = '';
-        
-        if (data.records && data.records.length > 0) {
-          data.records.forEach(rec => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td><code>${rec.event_id}</code></td>
-              <td>${rec.document_id}</td>
-              <td>${rec.service_name}</td>
-              <td><span class="badge" style="background:#1e3a8a;color:#93c5fd">${rec.event_type}</span></td>
-              <td><code>${rec.hmac_signature ? rec.hmac_signature.substring(0, 16) + '...' : 'N/A'}</code></td>
-              <td>${rec.created_at}</td>
-            `;
-            tbody.appendChild(tr);
-          });
-        } else {
-          tbody.innerHTML = '<tr><td colspan="6">No audit records found.</td></tr>';
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    fetchAuditLogs();
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClinIntake — Compliance Audit Dashboard</title>
+    <meta name="description" content="ClinIntake Compliance Audit Dashboard — immutable audit trail, vault integrity verification, and regulatory compliance monitoring." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-white text-slate-800 font-sans antialiased selection:bg-blue-500 selection:text-white min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

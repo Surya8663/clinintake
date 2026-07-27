@@ -34,8 +34,8 @@ export async function saveReferralEdits(documentId: string, text: string): Promi
 export async function submitDecision(
   documentId: string,
   decision: 'APPROVED' | 'REJECTED',
-  clinicianId: string = 'DR-SURYA-MD',
-  digitalSignature: string = 'SIG-ECDSA-2026-X99'
+  clinicianId: string,
+  digitalSignature: string
 ): Promise<DecisionSubmitResponse> {
   const res = await fetch(`${API_BASE}/workspace/decision/${documentId}`, {
     method: 'POST',

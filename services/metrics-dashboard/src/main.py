@@ -29,7 +29,7 @@ async def get_pipeline_kpis():
     logger.info("Computing pipeline KPI metrics")
     return calculate_pipeline_kpis()
 
-# Mount frontend UI if folder exists
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(frontend_dir):
-    app.mount("/ui", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+# Mount built frontend UI if dist folder exists
+frontend_dist_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.exists(frontend_dist_dir):
+    app.mount("/ui", StaticFiles(directory=frontend_dist_dir, html=True), name="frontend")

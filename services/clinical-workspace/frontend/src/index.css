@@ -4,12 +4,17 @@
 
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-100 font-sans antialiased;
+    @apply bg-white text-slate-800 font-sans antialiased;
   }
 }
 
+/* Light-theme card — white surface with subtle shadow and light border */
 .glass-card {
-  @apply bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl shadow-xl;
+  @apply bg-white border border-slate-200 rounded-xl shadow-card;
+}
+
+.glass-card:hover {
+  @apply shadow-card-lg;
 }
 
 .bbox-pulse {
@@ -17,6 +22,6 @@
 }
 
 @keyframes pulse-border {
-  0%, 100% { border-color: rgba(56, 189, 248, 0.9); box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
-  50% { border-color: rgba(56, 189, 248, 0.4); box-shadow: 0 0 4px rgba(56, 189, 248, 0.1); }
+  0%, 100% { border-color: rgba(37, 99, 235, 0.8); box-shadow: 0 0 10px rgba(37, 99, 235, 0.2); }
+  50% { border-color: rgba(37, 99, 235, 0.4); box-shadow: 0 0 4px rgba(37, 99, 235, 0.08); }
 }

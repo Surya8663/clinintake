@@ -15,11 +15,11 @@ export const ReviewQueueList: React.FC<ReviewQueueListProps> = ({
 }) => {
   return (
     <div className="glass-card p-4 flex flex-col h-full">
-      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-sky-400" /> Review Queue
+      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+        <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-blue-600" /> Review Queue
         </h2>
-        <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+        <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono border border-blue-100">
           {items.length} Pending
         </span>
       </div>
@@ -31,34 +31,34 @@ export const ReviewQueueList: React.FC<ReviewQueueListProps> = ({
             <button
               key={item.document_id}
               onClick={() => onSelectDoc(item.document_id)}
-              className={`w-full text-left p-3 rounded-lg border transition-all ${
+              className={`w-full text-left p-3 rounded-lg border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
                 isSelected
-                  ? 'bg-sky-500/10 border-sky-500/50 text-white shadow-lg shadow-sky-500/5'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800/80 hover:border-slate-700'
+                  ? 'bg-blue-50 border-blue-300 text-slate-800 shadow-card-lg ring-1 ring-blue-200'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="font-mono font-medium text-xs text-sky-400">
+                <span className="font-mono font-medium text-xs text-blue-700">
                   {item.document_id}
                 </span>
                 {item.status === 'approved' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <CheckCircle2 className="w-3 h-3" /> Approved
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Approved
                   </span>
                 )}
                 {item.status === 'rejected' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                    <XCircle className="w-3 h-3" /> Rejected
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                    <XCircle className="w-3 h-3 text-rose-600" /> Rejected
                   </span>
                 )}
                 {item.status === 'awaiting_approval' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    <Clock className="w-3 h-3" /> Review Due
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    <Clock className="w-3 h-3 text-amber-600" /> Review Due
                   </span>
                 )}
               </div>
-              <div className="text-xs text-slate-400">
-                Patient: <span className="font-mono font-medium text-slate-200">{item.patient_id}</span>
+              <div className="text-xs text-slate-600">
+                Patient: <span className="font-mono font-medium text-slate-800">{item.patient_id}</span>
               </div>
             </button>
           );

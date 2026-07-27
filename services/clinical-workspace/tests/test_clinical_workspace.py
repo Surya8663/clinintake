@@ -42,7 +42,7 @@ def test_edit_referral_text_and_submit_signed_approval():
         json={
             "decision": "APPROVED",
             "clinician_id": "DR-SURYA-MD",
-            "digital_signature": "SIG-ECDSA-2026-X99",
+            "digital_signature": "SIG-HMAC256-2026-07-27T17:30:00Z-a3f8c9d2e1b4c5d6e7f8",
             "notes": "Approved for FHIR EHR write."
         }
     )

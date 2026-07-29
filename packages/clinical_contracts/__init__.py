@@ -1,6 +1,7 @@
 from packages.clinical_contracts.base import BaseClinicalContract
 from packages.clinical_contracts.error import ApiErrorEnvelope
 from packages.clinical_contracts.context import ClinicalWorkflowContext
+from packages.clinical_contracts.state import ClinicalWorkflowState, VALID_STATE_TRANSITIONS, is_valid_transition
 from packages.clinical_contracts.services import (
     FilterScanRequest, FilterScanResponse,
     OcrProcessRequest, OcrProcessResponse,
@@ -25,6 +26,9 @@ __all__ = [
     "BaseClinicalContract",
     "ApiErrorEnvelope",
     "ClinicalWorkflowContext",
+    "ClinicalWorkflowState",
+    "VALID_STATE_TRANSITIONS",
+    "is_valid_transition",
     "FilterScanRequest", "FilterScanResponse",
     "OcrProcessRequest", "OcrProcessResponse",
     "ExtractRequest", "ExtractResponse",

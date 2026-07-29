@@ -134,15 +134,24 @@ async def transition_document(
 
 from src.lyzr_client import lyzr_client, LyzrApiError, LyzrGovernanceViolationError
 
+PROCESSED_CALLBACK_SIGNATURES: set = set()
+
 @app.post("/orchestrator/webhooks/lyzr-callback")
 async def lyzr_webhook_callback(request: Request):
-    """Webhooks callback receiver for signed Lyzr SuperFlow node completion events."""
+    """Webhooks callback receiver with HMAC-SHA256 verification & idempotent replay protection."""
     raw_body = await request.body()
     sig = request.headers.get("X-Lyzr-Signature", "")
     if not lyzr_client.verify_webhook_signature(raw_body, sig):
         logger.warning("[LYZR WEBHOOK] Invalid callback signature")
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
     
+    # Replay Protection Check
+    if sig in PROCESSED_CALLBACK_SIGNATURES:
+        logger.info("[LYZR WEBHOOK REPLAY] Duplicate callback signature detected. Skipping side effects.")
+        return {"status": "accepted", "replay": True}
+    
+    PROCESSED_CALLBACK_SIGNATURES.add(sig)
+
     data = await request.json()
     doc_id = data.get("document_id")
     if doc_id:
@@ -151,7 +160,7 @@ async def lyzr_webhook_callback(request: Request):
             workflow.context["lyzr_last_node"] = data.get("node_id")
             workflow.context["lyzr_node_status"] = data.get("status")
             await persistence.save_workflow(workflow)
-    return {"status": "accepted"}
+    return {"status": "accepted", "replay": False}
 
 @app.post("/orchestrator/documents/{document_id}/execute-step")
 async def execute_step(

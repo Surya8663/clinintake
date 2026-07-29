@@ -1,60 +1,63 @@
+from typing import Optional, Dict, Any
 from transitions import Machine, MachineError
+from packages.clinical_contracts import ClinicalWorkflowState, is_valid_transition
 from src.logger import logger
 
 class UnapprovedEHRWriteError(Exception):
     """Raised when an attempt to transition to writing_ehr occurs without signed clinician approval."""
     pass
 
+class OptimisticLockError(Exception):
+    """Raised when a state transition or save fails due to version mismatch."""
+    pass
+
 class DocumentWorkflow:
-    def __init__(self, document_id: str, state: str = "received", context: dict = None):
+    def __init__(
+        self,
+        document_id: str,
+        state: str = "received",
+        context: Optional[Dict[str, Any]] = None,
+        version: int = 1,
+        trace_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        lyzr_execution_id: Optional[str] = None
+    ):
         self.document_id = document_id
         self.state = state
         self.context = context or {}
+        self.version = version
+        self.trace_id = trace_id
+        self.correlation_id = correlation_id
+        self.lyzr_execution_id = lyzr_execution_id
 
 class WorkflowMachine:
-    STATES = [
-        "received",
-        "sanitizing",
-        "extracting",
-        "validating",
-        "reasoning",
-        "awaiting_approval",
-        "writing_ehr",
-        "complete",
-        "escalated",
-        "rejected",
-    ]
+    STATES = [s.value for s in ClinicalWorkflowState]
     
     TRANSITIONS = [
-        {"trigger": "start_sanitize", "source": "received", "dest": "sanitizing"},
-        {"trigger": "sanitize_success", "source": "sanitizing", "dest": "extracting"},
-        {"trigger": "sanitize_fail", "source": "sanitizing", "dest": "rejected"},
-        
-        {"trigger": "extraction_success", "source": "extracting", "dest": "validating"},
-        {"trigger": "extraction_fail", "source": "extracting", "dest": "escalated"},
-        
-        {"trigger": "validation_success", "source": "validating", "dest": "reasoning"},
-        {"trigger": "validation_needs_review", "source": "validating", "dest": "awaiting_approval"},
-        {"trigger": "validation_fail", "source": "validating", "dest": "rejected"},
-        
-        {"trigger": "reasoning_success", "source": "reasoning", "dest": "awaiting_approval"},
-        {"trigger": "reasoning_needs_review", "source": "reasoning", "dest": "awaiting_approval"},
-        {"trigger": "reasoning_fail", "source": "reasoning", "dest": "escalated"},
-        
-        {"trigger": "approve", "source": "awaiting_approval", "dest": "writing_ehr"},
-        {"trigger": "reject", "source": "awaiting_approval", "dest": "rejected"},
-        
-        {"trigger": "write_ehr_success", "source": "writing_ehr", "dest": "complete"},
-        {"trigger": "write_ehr_fail", "source": "writing_ehr", "dest": "escalated"},
-        
-        # Global safety/operational escapes
-        {"trigger": "force_escalate", "source": "*", "dest": "escalated"},
-        {"trigger": "force_reject", "source": "*", "dest": "rejected"},
+        {"trigger": "start_sanitize", "source": ["received", "failed_retryable"], "dest": "security_scanning"},
+        {"trigger": "quarantine", "source": ["received", "security_scanning", "validating", "guardrail_review"], "dest": "quarantined"},
+        {"trigger": "start_identity", "source": ["security_scanning", "failed_retryable"], "dest": "identity_resolving"},
+        {"trigger": "need_identity_review", "source": "identity_resolving", "dest": "identity_review"},
+        {"trigger": "start_ocr", "source": ["identity_resolving", "identity_review", "failed_retryable"], "dest": "ocr_processing"},
+        {"trigger": "start_extraction", "source": ["ocr_processing", "failed_retryable"], "dest": "extracting"},
+        {"trigger": "start_terminology", "source": ["extracting", "failed_retryable"], "dest": "terminology_normalizing"},
+        {"trigger": "start_validation", "source": ["terminology_normalizing", "failed_retryable"], "dest": "validating"},
+        {"trigger": "start_reasoning", "source": ["validating", "failed_retryable"], "dest": "deterministic_reasoning"},
+        {"trigger": "escalate_safety", "source": "deterministic_reasoning", "dest": "safety_escalated"},
+        {"trigger": "assemble_package", "source": ["deterministic_reasoning", "safety_escalated", "failed_retryable"], "dest": "assembling_decision_package"},
+        {"trigger": "start_drafting", "source": ["assembling_decision_package", "failed_retryable"], "dest": "drafting"},
+        {"trigger": "start_guardrail", "source": ["drafting", "failed_retryable"], "dest": "guardrail_review"},
+        {"trigger": "await_clinician", "source": "guardrail_review", "dest": "awaiting_clinician"},
+        {"trigger": "reject", "source": ["identity_review", "safety_escalated", "awaiting_clinician", "ehr_authorizing"], "dest": "rejected"},
+        {"trigger": "authorize_ehr", "source": "awaiting_clinician", "dest": "ehr_authorizing"},
+        {"trigger": "start_ehr_write", "source": ["ehr_authorizing", "failed_retryable"], "dest": "ehr_writing"},
+        {"trigger": "write_ehr_success", "source": "ehr_writing", "dest": "completed"},
+        {"trigger": "fail_retryable", "source": "*", "dest": "failed_retryable"},
+        {"trigger": "fail_terminal", "source": "*", "dest": "failed_terminal"},
     ]
 
     @classmethod
     def get_machine(cls, model: DocumentWorkflow) -> Machine:
-        # We specify send_event=True so callback functions receive the EventData object
         return Machine(
             model=model,
             states=cls.STATES,
@@ -64,31 +67,41 @@ class WorkflowMachine:
             auto_transitions=False
         )
 
-def transition_workflow(model: DocumentWorkflow, trigger: str, *args, **kwargs) -> DocumentWorkflow:
+def transition_workflow(
+    model: DocumentWorkflow,
+    trigger: str,
+    expected_version: Optional[int] = None,
+    *args,
+    **kwargs
+) -> DocumentWorkflow:
     """
-    Attempts to trigger a transition on the document workflow model.
-    Raises MachineError if transition is illegal, or UnapprovedEHRWriteError if EHR write is attempted without approval.
+    Attempts to trigger a state transition on DocumentWorkflow with optimistic concurrency control.
     """
-    if trigger == "approve" or trigger == "write_ehr":
+    if expected_version is not None and expected_version != model.version:
+        logger.error(f"[OPTIMISTIC LOCK FAILURE] Mismatch for doc_id={model.document_id}: expected={expected_version}, current={model.version}")
+        raise OptimisticLockError(f"Optimistic lock failure: expected version {expected_version}, current {model.version}")
+
+    if trigger in ("authorize_ehr", "start_ehr_write"):
         is_signed = model.context.get("signed_approval") or kwargs.get("signed_approval")
         if not is_signed:
             logger.error(f"Governance Violation: Blocked attempt to write EHR without signed approval for doc_id={model.document_id}")
-            raise UnapprovedEHRWriteError("Governance Violation: Cannot transition to writing_ehr without genuine Signed Approval event.")
+            raise UnapprovedEHRWriteError("Governance Violation: Cannot transition to EHR write without genuine Signed Approval event.")
 
     machine = WorkflowMachine.get_machine(model)
     logger.info(
-        f"Attempting transition: {trigger}",
+        f"Attempting transition: {trigger} (v{model.version})",
         extra={
             "document_id": model.document_id,
             "current_state": model.state,
-            "trigger": trigger
+            "trigger": trigger,
+            "version": model.version
         }
     )
     
-    # Executing the trigger (e.g., model.trigger_name())
     try:
         trigger_func = getattr(model, trigger)
         trigger_func(*args, **kwargs)
+        model.version += 1
     except MachineError as e:
         logger.error(
             f"Invalid transition attempted: {trigger}",
@@ -102,11 +115,11 @@ def transition_workflow(model: DocumentWorkflow, trigger: str, *args, **kwargs) 
         raise e
         
     logger.info(
-        f"Transition successful: {trigger}",
+        f"Transition successful: {trigger} -> {model.state} (v{model.version})",
         extra={
             "document_id": model.document_id,
             "new_state": model.state,
-            "trigger": trigger
+            "version": model.version
         }
     )
     return model

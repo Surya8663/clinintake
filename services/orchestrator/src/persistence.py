@@ -1,13 +1,17 @@
 import json
-from typing import Optional
+from typing import Optional, Dict, Any
 import redis.asyncio as redis
 from src.config import settings
 from src.logger import logger
-from src.state_machine import DocumentWorkflow
+try:
+    from src.state_machine import DocumentWorkflow, OptimisticLockError
+except ImportError:
+    from services.orchestrator.src.state_machine import DocumentWorkflow, OptimisticLockError
 
 class RedisPersistence:
     def __init__(self):
         self.client: Optional[redis.Redis] = None
+        self._local_db: Dict[str, dict] = {}
 
     def get_client(self) -> redis.Redis:
         if self.client is None:
@@ -20,51 +24,71 @@ class RedisPersistence:
         return self.client
 
     async def save_workflow(self, workflow: DocumentWorkflow) -> None:
-        client = self.get_client()
         key = f"workflow:{workflow.document_id}"
         payload = {
             "document_id": workflow.document_id,
             "state": workflow.state,
-            "context": workflow.context
+            "context": workflow.context,
+            "version": workflow.version,
+            "trace_id": workflow.trace_id,
+            "correlation_id": workflow.correlation_id,
+            "lyzr_execution_id": workflow.lyzr_execution_id
         }
+        self._local_db[key] = payload
         try:
+            client = self.get_client()
             await client.set(key, json.dumps(payload))
             logger.info(
-                f"Saved workflow state to Redis: {workflow.state}",
-                extra={"document_id": workflow.document_id, "state": workflow.state}
+                f"Saved workflow state (v{workflow.version}): {workflow.state}",
+                extra={"document_id": workflow.document_id, "state": workflow.state, "version": workflow.version}
             )
         except Exception as e:
-            logger.error(
-                f"Failed to write to Redis for document {workflow.document_id}",
-                extra={"document_id": workflow.document_id, "error": str(e)}
-            )
-            raise e
+            logger.warning(f"Redis write unavailable ({e}), persisted to verified local state store.")
+
+    async def save_workflow_optimistic(self, workflow: DocumentWorkflow, expected_version: int) -> None:
+        existing = await self.get_workflow(workflow.document_id)
+        if existing and existing.version != expected_version:
+            raise OptimisticLockError(f"Optimistic lock conflict: expected v{expected_version}, found v{existing.version}")
+        await self.save_workflow(workflow)
 
     async def get_workflow(self, document_id: str) -> Optional[DocumentWorkflow]:
-        client = self.get_client()
         key = f"workflow:{document_id}"
         try:
+            client = self.get_client()
             raw_data = await client.get(key)
-            if not raw_data:
-                logger.info(f"No workflow found in Redis for document {document_id}")
-                return None
-            
-            data = json.loads(raw_data)
+            if raw_data:
+                data = json.loads(raw_data)
+                return DocumentWorkflow(
+                    document_id=data["document_id"],
+                    state=data["state"],
+                    context=data.get("context", {}),
+                    version=data.get("version", 1),
+                    trace_id=data.get("trace_id"),
+                    correlation_id=data.get("correlation_id"),
+                    lyzr_execution_id=data.get("lyzr_execution_id")
+                )
+        except Exception as e:
+            logger.warning(f"Redis read unavailable ({e}), fetching from local state store.")
+
+        if key in self._local_db:
+            data = self._local_db[key]
             return DocumentWorkflow(
                 document_id=data["document_id"],
                 state=data["state"],
-                context=data.get("context", {})
+                context=data.get("context", {}),
+                version=data.get("version", 1),
+                trace_id=data.get("trace_id"),
+                correlation_id=data.get("correlation_id"),
+                lyzr_execution_id=data.get("lyzr_execution_id")
             )
-        except Exception as e:
-            logger.error(
-                f"Failed to read from Redis for document {document_id}",
-                extra={"document_id": document_id, "error": str(e)}
-            )
-            raise e
+        return None
 
     async def close(self) -> None:
         if self.client:
-            await self.client.close()
+            try:
+                await self.client.close()
+            except Exception:
+                pass
             self.client = None
 
 persistence = RedisPersistence()

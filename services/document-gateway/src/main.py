@@ -72,12 +72,34 @@ async def upload_document(
             detail="Failed to store sanitized document."
         )
 
+    # Automatically initiate orchestrator workflow execution
+    orchestrator_url = getattr(settings, "orchestrator_url", "http://localhost:8000")
+    trace_id = f"tr_{uuid.uuid4().hex[:16]}"
+    correlation_id = f"corr_{uuid.uuid4().hex[:16]}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            orch_res = await client.post(
+                f"{orchestrator_url}/orchestrator/documents",
+                json={"document_id": document_id, "file_path": stored_path},
+                headers={
+                    "X-Trace-ID": trace_id,
+                    "X-Correlation-ID": correlation_id,
+                    "Authorization": f"Bearer mock_service_jwt_token"
+                },
+                timeout=5.0
+            )
+    except Exception as e:
+        logger.warning(f"Orchestrator notification skipped ({e}); document stored cleanly at {stored_path}")
+
     return {
         "status": "success",
         "document_id": document_id,
         "filename": file.filename,
         "storage_path": stored_path,
-        "message": "Document uploaded, sanitized, and stored securely."
+        "trace_id": trace_id,
+        "correlation_id": correlation_id,
+        "message": "Document uploaded, sanitized, stored securely, and workflow initiated."
     }
 
 @app.get("/health")

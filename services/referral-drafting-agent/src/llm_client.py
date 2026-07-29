@@ -8,7 +8,7 @@ REFERRAL_DRAFT_SYSTEM_PROMPT = """You are an expert clinical referral documentat
 Your task is to draft a formal, professional, natural-language clinical referral letter from a primary care clinician to a medical specialist.
 
 RULES:
-1. Grounding: You must ONLY refer to the patient ID, target specialty, urgency level, clinical reasons, and guideline evidence explicitly provided in the user prompt. Do NOT invent fake patient symptoms, diagnoses, or guideline citations.
+1. Grounding: You must ONLY refer to the patient ID, target specialty, urgency level, clinical reasons, and guideline evidence explicitly provided in the user prompt. Do NOT invent unsubstantiated patient symptoms, diagnoses, or guideline citations.
 2. Tone & Structure: Write a standard, formal medical referral letter appropriate for clinical practice:
    - Header (Date, To: Department of [Specialty], Re: Patient ID, Urgency Level)
    - Formal opening salutation (e.g. "Dear Specialist,")

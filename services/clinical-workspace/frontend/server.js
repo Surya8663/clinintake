@@ -12,7 +12,16 @@ const PYTHON_BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8015';
 
 console.log(`[Express BFF] Starting Clinical Workspace Node.js BFF Proxy -> ${PYTHON_BACKEND_URL}`);
 
-// Proxy API requests to Python FastAPI Service
+// Add security headers middleware
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;");
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Proxy API requests to Python FastAPI Service (forwarding Authorization tokens, NO privileged scope headers)
 app.use('/api', createProxyMiddleware({
   target: PYTHON_BACKEND_URL,
   changeOrigin: true,
@@ -20,9 +29,9 @@ app.use('/api', createProxyMiddleware({
     '^/api': '',
   },
   onProxyReq: (proxyReq, req, res) => {
-    // Enforce required RBAC headers for digital signature workflow
-    if (!proxyReq.getHeader('X-User-Scopes')) {
-      proxyReq.setHeader('X-User-Scopes', 'referral:approve,referral:read');
+    // Forward Bearer token from authorization header or cookie if present
+    if (req.headers.authorization) {
+      proxyReq.setHeader('Authorization', req.headers.authorization);
     }
   }
 }));

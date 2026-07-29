@@ -1,13 +1,25 @@
 import { KPISummaryResponse } from '../types/metrics';
 
-// Detect whether running via Express BFF proxy (/api) or direct FastAPI
 const isDirectFastAPI = window.location.port === '8020';
 const API_BASE = isDirectFastAPI ? '' : '/api';
 
-export async function fetchPipelineKPIs(): Promise<KPISummaryResponse> {
-  const res = await fetch(`${API_BASE}/metrics/kpis`);
+function getAuthHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const authToken = token || localStorage.getItem('clinintake_access_token');
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  return headers;
+}
+
+export async function fetchPipelineKPIs(token?: string): Promise<KPISummaryResponse> {
+  const res = await fetch(`${API_BASE}/metrics/kpis`, {
+    headers: getAuthHeaders(token)
+  });
   if (!res.ok) {
-    throw new Error(`Failed to fetch pipeline KPIs: ${res.statusText}`);
+    throw new Error(`Failed to fetch pipeline KPIs: ${res.statusText} (${res.status})`);
   }
   return res.json();
 }

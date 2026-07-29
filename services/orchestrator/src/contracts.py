@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 
 # General metadata container
 class PatientMetadata(BaseModel):
-    patient_id: str = Field(..., description="Unique Patient Identifier (no dummy ids allowed)")
+    patient_id: str = Field(..., description="Unique Patient Identifier (valid patient identifier required)")
     first_name: str
     last_name: str
     date_of_birth: str

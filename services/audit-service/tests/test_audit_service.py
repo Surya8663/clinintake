@@ -1,12 +1,42 @@
+import os
+import time, json, hmac, hashlib
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+os.environ["HMAC_SECRET_KEY"] = "test_audit_hmac_key_2026"
+os.environ["JWT_SECRET_KEY"] = "test_audit_jwt_secret_2026"
+
 from src.main import app
 from src.vault_db import engine, insert_audit_event, AuditVaultRecord, AuditVaultImmutableError
+from services.common.jwt_verifier import _b64_encode
 
 client = TestClient(app)
+
+def get_auth_header(roles=["compliance:audit:read", "service:internal"]):
+    now = int(time.time())
+    exp = now + 900
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {
+        "sub": "auditor_jane",
+        "preferred_username": "auditor_jane",
+        "role": "COMPLIANCE_REVIEWER",
+        "roles": roles,
+        "realm_access": {"roles": roles},
+        "scopes": roles,
+        "scope": " ".join(roles),
+        "iss": "http://localhost:8085/realms/clinintake",
+        "aud": "clinintake-bff",
+        "iat": now,
+        "exp": exp
+    }
+    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
+    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    message = f"{header_b64}.{payload_b64}"
+    sig = hmac.new(b"test_audit_jwt_secret_2026", message.encode('utf-8'), hashlib.sha256).digest()
+    token = f"{message}.{_b64_encode(sig)}"
+    return {"Authorization": f"Bearer {token}"}
 
 def test_audit_health():
     response = client.get("/health")
@@ -14,6 +44,7 @@ def test_audit_health():
     assert response.json()["status"] == "ok"
 
 def test_record_and_query_audit_event():
+    headers = get_auth_header()
     event_payload = {
         "document_id": "DOC-AUDIT-100",
         "service_name": "document-gateway",
@@ -21,7 +52,7 @@ def test_record_and_query_audit_event():
         "payload": {"file_name": "patient_chart.pdf", "file_size": 2048}
     }
     
-    response = client.post("/audit/events", json=event_payload)
+    response = client.post("/audit/events", json=event_payload, headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["document_id"] == "DOC-AUDIT-100"
@@ -30,14 +61,15 @@ def test_record_and_query_audit_event():
     assert data["prev_hash"] is not None
 
     # Query audit trail
-    query_resp = client.get("/audit/events?document_id=DOC-AUDIT-100")
+    query_resp = client.get("/audit/events?document_id=DOC-AUDIT-100", headers=headers)
     assert query_resp.status_code == 200
     query_data = query_resp.json()
     assert query_data["total_records"] >= 1
     assert query_data["records"][0]["document_id"] == "DOC-AUDIT-100"
 
 def test_verify_hashchain_integrity():
-    response = client.get("/audit/verify")
+    headers = get_auth_header()
+    response = client.get("/audit/verify", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "intact"
@@ -45,13 +77,7 @@ def test_verify_hashchain_integrity():
 
 @pytest.mark.anyio
 async def test_audit_vault_update_and_delete_operations_rejected():
-    """
-    CRITICAL PRD 5.4 REQUIREMENT TEST:
-    Proves that any UPDATE or DELETE operation attempted on an existing Audit Vault record
-    is strictly REJECTED by raising an AuditVaultImmutableError.
-    """
     async with AsyncSession(engine) as session:
-        # Create record
         rec = await insert_audit_event(
             session=session,
             event_id="EVT-IMMUTABLE-01",
@@ -71,7 +97,6 @@ async def test_audit_vault_update_and_delete_operations_rejected():
             
         assert "Audit Vault records are append-only. UPDATE operations are strictly forbidden" in str(exc_info_update.value)
 
-        # Rollback session state
         await session.rollback()
 
         # 2. Test DELETE rejection

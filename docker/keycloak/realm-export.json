@@ -1,0 +1,144 @@
+{
+  "realm": "clinintake",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "clinician:review",
+        "description": "Permission to view clinical review items and findings"
+      },
+      {
+        "name": "clinician:approve",
+        "description": "Permission to submit clinical document approvals"
+      },
+      {
+        "name": "clinician:reject",
+        "description": "Permission to submit clinical document rejections"
+      },
+      {
+        "name": "compliance:audit:read",
+        "description": "Permission to read compliance audit trails and verify vault integrity"
+      },
+      {
+        "name": "quality:metrics:read",
+        "description": "Permission to view quality and performance metrics KPIs"
+      },
+      {
+        "name": "admin:system",
+        "description": "System administrator full permissions"
+      },
+      {
+        "name": "service:internal",
+        "description": "Machine-to-machine internal service execution permission"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "clinintake-frontend",
+      "name": "ClinIntake Frontend Single-Page App",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "http://localhost:3002/*",
+        "http://127.0.0.1:3000/*",
+        "http://127.0.0.1:3001/*",
+        "http://127.0.0.1:3002/*"
+      ],
+      "webOrigins": ["*"]
+    },
+    {
+      "clientId": "clinintake-bff",
+      "name": "ClinIntake Backend-for-Frontend Service",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "sec_keycloak_bff_secret_2026",
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": true
+    },
+    {
+      "clientId": "clinintake-m2m",
+      "name": "ClinIntake Machine-to-Machine Internal Service",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "sec_keycloak_m2m_secret_2026",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "clientAuthenticatorType": "client-secret"
+    }
+  ],
+  "users": [
+    {
+      "username": "dr_smith",
+      "enabled": true,
+      "firstName": "John",
+      "lastName": "Smith",
+      "email": "dr_smith@clinintake.org",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ClinicianPass123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["clinician:review", "clinician:approve", "clinician:reject"]
+    },
+    {
+      "username": "auditor_jane",
+      "enabled": true,
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "auditor_jane@clinintake.org",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "AuditorPass123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["compliance:audit:read"]
+    },
+    {
+      "username": "quality_reviewer",
+      "enabled": true,
+      "firstName": "Alex",
+      "lastName": "Taylor",
+      "email": "quality_reviewer@clinintake.org",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "QualityPass123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["quality:metrics:read"]
+    },
+    {
+      "username": "admin_user",
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@clinintake.org",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "AdminPass123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin:system", "clinician:review", "clinician:approve", "clinician:reject", "compliance:audit:read", "quality:metrics:read"]
+    }
+  ]
+}

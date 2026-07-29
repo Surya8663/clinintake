@@ -1,6 +1,9 @@
 import datetime
-from fastapi import FastAPI, HTTPException
+from typing import Dict, Any
+from fastapi import FastAPI, HTTPException, Depends
 
+from services.common.jwt_verifier import require_m2m_service, require_roles
+from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
 from src.models import FHIRTransactionRequest, FHIRTransactionResponse
@@ -10,8 +13,10 @@ from src.fhir_bundle_writer import assemble_fhir_r4_transaction_bundle, execute_
 app = FastAPI(
     title=settings.service_name,
     description="Sole EHR Write Component with Redis Idempotency and FHIR R4 Transaction Bundles",
-    version="1.0.0"
+    version="2.0.0"
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get("/health")
 async def health_check():
@@ -22,12 +27,15 @@ async def health_check():
     }
 
 @app.post("/fhir/write-transaction", response_model=FHIRTransactionResponse)
-async def write_fhir_transaction(request: FHIRTransactionRequest):
+async def write_fhir_transaction(
+    request: FHIRTransactionRequest,
+    claims: Dict[str, Any] = Depends(require_m2m_service)
+):
     """
     Sole component with EHR write credentials.
-    Enforces Redis-backed idempotency deduplication before executing real FHIR R4 transaction writes.
+    Requires machine-to-machine service authentication and Redis idempotency deduplication.
     """
-    logger.info(f"Received FHIR write transaction request doc_id={request.document_id} key={request.idempotency_key}")
+    logger.info(f"Received FHIR write transaction request doc_id={request.document_id} key={request.idempotency_key} from service={claims.get('sub')}")
 
     if not request.idempotency_key:
         raise HTTPException(status_code=400, detail="idempotency_key must be provided for EHR write transactions")

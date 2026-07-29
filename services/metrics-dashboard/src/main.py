@@ -1,7 +1,10 @@
 import os
-from fastapi import FastAPI
+from typing import Dict, Any
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
 
+from services.common.jwt_verifier import require_roles
+from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
 from src.models import KPISummaryResponse
@@ -10,8 +13,10 @@ from src.kpi_engine import calculate_pipeline_kpis
 app = FastAPI(
     title=settings.service_name,
     description="Real Pipeline KPI Analytics Dashboard (Extraction Accuracy, Red-Flag Sensitivity, Hallucination Rate)",
-    version="1.0.0"
+    version="2.0.0"
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get("/health")
 async def health_check():
@@ -21,12 +26,14 @@ async def health_check():
     }
 
 @app.get("/metrics/kpis", response_model=KPISummaryResponse)
-async def get_pipeline_kpis():
+async def get_pipeline_kpis(
+    claims: Dict[str, Any] = Depends(require_roles(["quality:metrics:read", "admin:system"]))
+):
     """
     Computes PRD Section 13 KPIs from actual pipeline evaluation benchmark datasets.
-    Returns real accuracy, red-flag sensitivity, and quote-grounding hallucination rate metrics.
+    Enforces 'quality:metrics:read' RBAC role requirement.
     """
-    logger.info("Computing pipeline KPI metrics")
+    logger.info("Computing pipeline KPI metrics for verified user")
     return calculate_pipeline_kpis()
 
 # Mount built frontend UI if dist folder exists

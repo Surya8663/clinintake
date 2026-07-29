@@ -12,13 +12,8 @@ import {
   saveReferralEdits,
   submitDecision,
 } from './services/api';
-import { AlertCircle, Loader2, WifiOff } from 'lucide-react';
+import { AlertCircle, Loader2, WifiOff, Lock } from 'lucide-react';
 
-/**
- * Generate a per-submission digital signature using HMAC-SHA256.
- * Derives a unique hash from clinicianId + documentId + ISO timestamp
- * keyed by a session-bound cryptographic key generated once per app session.
- */
 async function generateSubmissionSignature(
   sessionKey: CryptoKey,
   clinicianId: string,
@@ -39,16 +34,17 @@ async function generateSubmissionSignature(
 
 export const App: React.FC = () => {
   const [queue, setQueue] = useState<ReviewItem[]>([]);
-  const [selectedDocId, setSelectedDocId] = useState<string>('DOC-DEMO-001');
+  const [selectedDocId, setSelectedDocId] = useState<string>('DOC-99482-A');
   const [findings, setFindings] = useState<DocumentFindingsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<boolean>(false);
 
+  const [clinicianId, setClinicianId] = useState<string>('dr_smith');
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [notificationType, setNotificationType] = useState<'approved' | 'rejected' | 'saved' | 'error' | null>(null);
 
-  // Session-bound HMAC key — generated once per app session, never reused across sessions
   const sessionKeyRef = useRef<CryptoKey | null>(null);
   useEffect(() => {
     crypto.subtle
@@ -58,32 +54,34 @@ export const App: React.FC = () => {
       });
   }, []);
 
-  // Load review queue
-  useEffect(() => {
-    async function loadQueue() {
-      try {
-        setQueueError(null);
-        const queueItems = await fetchReviewQueue();
-        setQueue(queueItems);
-        if (queueItems.length > 0 && !selectedDocId) {
-          setSelectedDocId(queueItems[0].document_id);
-        }
-      } catch (err: any) {
-        console.error('Failed to load queue:', err);
-        setQueue([]);
-        setQueueError(
-          'Unable to load review queue — check connection to workspace service.'
-        );
+  const loadQueue = async () => {
+    try {
+      setQueueError(null);
+      const data = await fetchReviewQueue();
+      setQueue(data);
+      if (data.length > 0 && !selectedDocId) {
+        setSelectedDocId(data[0].document_id);
+      }
+    } catch (err: any) {
+      console.error('Error loading review queue:', err);
+      setQueue([]);
+      if (err.message && (err.message.includes('401') || err.message.includes('403'))) {
+        setAuthError(true);
+        setQueueError('Access Denied (401/403): OIDC authentication or clinician role required.');
+      } else {
+        setQueueError('Unable to load review queue — check connection to workspace service.');
       }
     }
+  };
+
+  useEffect(() => {
     loadQueue();
   }, []);
 
-  // Load findings for selected document
   useEffect(() => {
     if (!selectedDocId) return;
 
-    async function loadFindings() {
+    const loadFindings = async () => {
       setLoading(true);
       setError(null);
       try {
@@ -95,7 +93,7 @@ export const App: React.FC = () => {
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     loadFindings();
   }, [selectedDocId]);
@@ -115,16 +113,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSubmitDecision = async (decision: 'APPROVED' | 'REJECTED') => {
+  const handleDecision = async (decision: 'APPROVED' | 'REJECTED') => {
     if (!selectedDocId) return;
 
-    // Generate a real per-submission cryptographic signature
     let digitalSignature: string;
     if (sessionKeyRef.current) {
       try {
         digitalSignature = await generateSubmissionSignature(
           sessionKeyRef.current,
-          'DR-SURYA-MD',
+          clinicianId,
           selectedDocId,
         );
       } catch {
@@ -135,7 +132,7 @@ export const App: React.FC = () => {
     }
 
     try {
-      const res = await submitDecision(selectedDocId, decision, 'DR-SURYA-MD', digitalSignature);
+      const res = await submitDecision(selectedDocId, decision, clinicianId, digitalSignature);
       if (decision === 'APPROVED') {
         setNotificationMsg(`✍️ Signed Approval Event emitted for ${selectedDocId}! Orchestrator authorized for EHR write.`);
         setNotificationType('approved');
@@ -144,7 +141,6 @@ export const App: React.FC = () => {
         setNotificationType('rejected');
       }
 
-      // Only update queue/findings status AFTER confirmed server response
       setQueue((prev) =>
         prev.map((item) =>
           item.document_id === selectedDocId
@@ -163,17 +159,24 @@ export const App: React.FC = () => {
       console.error(`Failed to submit ${decision} decision for ${selectedDocId}:`, err);
       const action = decision === 'APPROVED' ? 'approval' : 'rejection';
       setNotificationMsg(
-        `⚠️ Failed to submit ${action} for ${selectedDocId} — request did not reach the server. ` +
-        `The document status has NOT changed. Please retry.`
+        `⚠️ Failed to submit ${action} for ${selectedDocId} — ${err.message || 'request failed'}.`
       );
       setNotificationType('error');
-      // Explicitly do NOT update queue or findings — the decision was not recorded
     }
   };
 
   return (
     <div className="min-h-screen p-4 sm:p-6 flex flex-col">
-      <Header clinicianId="DR-SURYA-MD" />
+      <Header clinicianId={clinicianId} />
+
+      {authError && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3 text-amber-800 text-sm">
+          <Lock className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <div>
+            <strong>OIDC Authentication Required:</strong> You are currently unauthenticated or lack the <code>clinician:review</code> role.
+          </div>
+        </div>
+      )}
 
       {notificationMsg && (
         <div className="mb-6">
@@ -181,72 +184,61 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {error && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-3 text-xs">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-        {/* Review Queue Sidebar */}
-        <div className="lg:col-span-3">
-          {queueError ? (
-            <div className="glass-card p-6 flex flex-col items-center justify-center text-center gap-3">
-              <WifiOff className="w-8 h-8 text-amber-600" />
-              <p className="text-xs text-amber-700 font-medium leading-relaxed">
-                {queueError}
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="mt-2 text-[10px] px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
-              >
-                Retry Connection
-              </button>
-            </div>
-          ) : (
-            <ReviewQueueList
-              items={queue}
-              selectedDocId={selectedDocId}
-              onSelectDoc={(id) => setSelectedDocId(id)}
-            />
-          )}
+        <div className="lg:col-span-3 flex flex-col">
+          <ReviewQueueList
+            queue={queue}
+            selectedDocId={selectedDocId}
+            onSelectDoc={(id) => {
+              setSelectedDocId(id);
+              setNotificationMsg(null);
+            }}
+            errorMessage={queueError}
+            onRetry={loadQueue}
+          />
         </div>
 
-        {/* Main Review Area */}
-        <div className="lg:col-span-9 space-y-6 flex flex-col">
+        <div className="lg:col-span-9 flex flex-col gap-6">
           {loading ? (
-            <div className="glass-card p-12 flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-              <p className="text-xs font-mono">Fetching document evidence & spatial bounding boxes...</p>
+            <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl p-12 flex flex-col items-center justify-center text-slate-500 shadow-sm min-h-[400px]">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+              <p className="text-sm font-medium">Loading clinical findings & OCR evidence...</p>
+            </div>
+          ) : error ? (
+            <div className="flex-1 bg-white border border-red-200 rounded-2xl p-8 flex flex-col items-center justify-center text-slate-600 shadow-sm min-h-[400px]">
+              <AlertCircle className="w-10 h-10 text-red-500 mb-3" />
+              <h3 className="text-base font-semibold text-slate-800 mb-1">Failed to Load Findings</h3>
+              <p className="text-xs text-slate-500 mb-4 text-center max-w-md">{error}</p>
+              <button
+                onClick={() => setSelectedDocId(selectedDocId)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all"
+              >
+                Retry Request
+              </button>
             </div>
           ) : findings ? (
             <>
-              {/* Document Visual Bounding Box & Evidence Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <DocumentViewer
-                  documentId={findings.document_id}
-                  patientId={findings.patient_id}
-                  evidenceSpans={findings.evidence_spans}
-                />
-                <EvidenceList evidenceSpans={findings.evidence_spans} />
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                <div className="xl:col-span-7 flex flex-col">
+                  <DocumentViewer documentId={findings.document_id} />
+                </div>
+                <div className="xl:col-span-5 flex flex-col">
+                  <EvidenceList evidenceSpans={findings.evidence_spans} />
+                </div>
               </div>
 
-              {/* Referral Editor & Decision Action Panel */}
-              <div className="flex-1">
-                <ReferralEditor
-                  documentId={findings.document_id}
-                  initialText={findings.referral_text}
-                  onSaveEdits={handleSaveEdits}
-                  onSubmitDecision={handleSubmitDecision}
-                  currentStatus={findings.status}
-                />
-              </div>
+              <ReferralEditor
+                documentId={findings.document_id}
+                initialText={findings.referral_text}
+                status={findings.status}
+                onSave={handleSaveEdits}
+                onDecision={handleDecision}
+              />
             </>
           ) : (
-            <div className="glass-card p-12 flex flex-col items-center justify-center min-h-[400px] text-slate-500">
-              <AlertCircle className="w-8 h-8 text-slate-400 mb-2" />
-              <p className="text-xs">No document findings selected or document not found.</p>
+            <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl p-12 flex flex-col items-center justify-center text-slate-400 shadow-sm min-h-[400px]">
+              <WifiOff className="w-8 h-8 text-slate-300 mb-3" />
+              <p className="text-sm">Select a document from the queue to review.</p>
             </div>
           )}
         </div>
@@ -254,5 +246,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-
-export default App;

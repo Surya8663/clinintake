@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
+from services.common.jwt_verifier import get_current_user_claims, require_roles, require_m2m_service
+from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
 from src.state_machine import DocumentWorkflow, transition_workflow
@@ -29,9 +31,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.service_name,
     description="Workflow Orchestrator central hub",
-    version="0.1.0",
+    version="2.0.0",
     lifespan=lifespan
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 class CreateDocumentRequest(BaseModel):
     document_id: str
@@ -54,7 +58,10 @@ async def health_check():
     return {"status": "ok", "service": settings.service_name}
 
 @app.post("/orchestrator/documents")
-async def create_document(req: CreateDocumentRequest):
+async def create_document(
+    req: CreateDocumentRequest,
+    claims: Dict[str, Any] = Depends(get_current_user_claims)
+):
     existing = await persistence.get_workflow(req.document_id)
     if existing:
         raise HTTPException(status_code=400, detail="Document already exists")
@@ -75,14 +82,21 @@ async def create_document(req: CreateDocumentRequest):
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
 @app.get("/orchestrator/documents/{document_id}")
-async def get_document(document_id: str):
+async def get_document(
+    document_id: str,
+    claims: Dict[str, Any] = Depends(get_current_user_claims)
+):
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
         raise HTTPException(status_code=404, detail="Document workflow not found")
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
 @app.post("/orchestrator/documents/{document_id}/transition")
-async def transition_document(document_id: str, req: TransitionRequest):
+async def transition_document(
+    document_id: str,
+    req: TransitionRequest,
+    claims: Dict[str, Any] = Depends(get_current_user_claims)
+):
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
         raise HTTPException(status_code=404, detail="Document workflow not found")
@@ -105,7 +119,10 @@ async def transition_document(document_id: str, req: TransitionRequest):
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
 @app.post("/orchestrator/documents/{document_id}/execute-step")
-async def execute_step(document_id: str):
+async def execute_step(
+    document_id: str,
+    claims: Dict[str, Any] = Depends(get_current_user_claims)
+):
     """
     Executes the next downstream microservice call based on the current state.
     Verifies state and dispatches requests following the single-hub-and-spoke constraint.

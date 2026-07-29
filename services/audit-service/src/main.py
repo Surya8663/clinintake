@@ -1,10 +1,12 @@
 import uuid
 import json
 from contextlib import asynccontextmanager
-from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Query, status, Header
+from typing import Optional, List, Dict, Any
+from fastapi import FastAPI, HTTPException, Query, status, Depends
 from sqlalchemy.future import select
 
+from services.common.jwt_verifier import require_roles, get_current_user_claims
+from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
 from src.models import AuditEventCreate, AuditRecordResponse, AuditQueryResponse, IntegrityVerifyResponse
@@ -21,9 +23,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.service_name,
     description="Cryptographic Append-Only Audit Vault Microservice",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get("/health")
 async def health_check():
@@ -33,7 +37,10 @@ async def health_check():
     }
 
 @app.post("/audit/events", response_model=AuditRecordResponse)
-async def create_audit_event(event: AuditEventCreate):
+async def create_audit_event(
+    event: AuditEventCreate,
+    claims: Dict[str, Any] = Depends(require_roles(["service:internal", "compliance:audit:read", "clinician:approve", "admin:system"]))
+):
     """Directly records a signed, append-only audit event into Audit Vault."""
     event_id = event.event_id or str(uuid.uuid4())
     async with AsyncSession(engine) as session:
@@ -66,15 +73,9 @@ async def query_audit_trail(
     service_name: Optional[str] = Query(None, description="Filter by service name"),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
     limit: int = Query(50, ge=1, le=500),
-    x_user_scopes: Optional[str] = Header(None, alias="X-User-Scopes")
+    claims: Dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
 ):
-    """Exposes query API for Compliance Dashboard to retrieve signed audit logs, enforcing 'audit:read' RBAC scope."""
-    if x_user_scopes is not None:
-        user_scopes = [s.strip() for s in x_user_scopes.split(",")]
-        if "audit:read" not in user_scopes:
-            logger.warning(f"RBAC Scope Violation: Access denied for audit trail query. Required scope 'audit:read' missing.")
-            raise HTTPException(status_code=403, detail="Forbidden: Missing required RBAC scope 'audit:read'")
-
+    """Exposes query API for Compliance Dashboard to retrieve signed audit logs, enforcing Keycloak OIDC roles."""
     await init_db()
     async with AsyncSession(engine) as session:
         stmt = select(AuditVaultRecord)
@@ -110,7 +111,9 @@ async def query_audit_trail(
         )
 
 @app.get("/audit/verify", response_model=IntegrityVerifyResponse)
-async def verify_audit_vault_integrity():
+async def verify_audit_vault_integrity(
+    claims: Dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
+):
     """Cryptographically verifies hash chain and HMAC signature integrity across all Audit Vault entries."""
     await init_db()
     async with AsyncSession(engine) as session:
@@ -127,7 +130,6 @@ async def verify_audit_vault_integrity():
 
         prev_hash = "0000000000000000000000000000000000000000000000000000000000000000"
         for r in records:
-            # 1. Verify prev_hash link
             if r.prev_hash != prev_hash:
                 return IntegrityVerifyResponse(
                     status="compromised",
@@ -136,7 +138,6 @@ async def verify_audit_vault_integrity():
                     details=f"Hash chain broken at entry id={r.id}: expected prev_hash={prev_hash}, found={r.prev_hash}"
                 )
 
-            # 2. Verify recomputed entry_hash
             computed_hash = compute_entry_hash(
                 r.prev_hash, r.event_id, r.document_id, r.service_name, r.event_type, r.payload_json, r.created_at
             )
@@ -148,7 +149,6 @@ async def verify_audit_vault_integrity():
                     details=f"Entry hash mismatch at entry id={r.id}"
                 )
 
-            # 3. Verify HMAC signature
             if not verify_entry_hmac(r.entry_hash, r.hmac_signature):
                 return IntegrityVerifyResponse(
                     status="compromised",

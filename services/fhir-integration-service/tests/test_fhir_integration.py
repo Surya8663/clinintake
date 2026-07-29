@@ -1,7 +1,40 @@
+import os
+import time, json, hmac, hashlib
 from fastapi.testclient import TestClient
+
+os.environ["EHR_CLIENT_SECRET"] = "test_ehr_secret_2026"
+os.environ["EHR_API_KEY"] = "test_ehr_api_key_2026"
+os.environ["JWT_SECRET_KEY"] = "test_fhir_jwt_secret_2026"
+
 from src.main import app
+from services.common.jwt_verifier import _b64_encode
 
 client = TestClient(app)
+
+def get_m2m_auth_header():
+    now = int(time.time())
+    exp = now + 3600
+    scopes = ["service:internal"]
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {
+        "sub": "service:clinintake-m2m",
+        "client_id": "clinintake-m2m",
+        "azp": "clinintake-m2m",
+        "role": "CLINICAL_AGENT",
+        "roles": scopes,
+        "realm_access": {"roles": scopes},
+        "scopes": scopes,
+        "iss": "http://localhost:8085/realms/clinintake",
+        "aud": "clinintake-backend-services",
+        "iat": now,
+        "exp": exp
+    }
+    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
+    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    message = f"{header_b64}.{payload_b64}"
+    sig = hmac.new(b"test_fhir_jwt_secret_2026", message.encode('utf-8'), hashlib.sha256).digest()
+    token = f"{message}.{_b64_encode(sig)}"
+    return {"Authorization": f"Bearer {token}"}
 
 def test_fhir_integration_health():
     response = client.get("/health")
@@ -10,6 +43,7 @@ def test_fhir_integration_health():
     assert response.json()["ehr_client_configured"] is True
 
 def test_fhir_transaction_write_persistence():
+    headers = get_m2m_auth_header()
     payload = {
         "document_id": "DOC-FHIR-100",
         "patient_id": "PAT-99882",
@@ -28,7 +62,7 @@ def test_fhir_transaction_write_persistence():
         ]
     }
 
-    response = client.post("/fhir/write-transaction", json=payload)
+    response = client.post("/fhir/write-transaction", json=payload, headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "persisted"
@@ -36,12 +70,7 @@ def test_fhir_transaction_write_persistence():
     assert len(data["resource_references"]) >= 2
 
 def test_idempotency_deduplication_suppresses_duplicate_transaction_as_no_op():
-    """
-    CRITICAL PRD 5.8 REQUIREMENT TEST:
-    Proves that submitting the identical transaction twice with the same idempotency key
-    results in the second request being recognized as a duplicate and returned as a no-op,
-    preventing duplicate record creation in the EHR.
-    """
+    headers = get_m2m_auth_header()
     same_idempotency_key = "IDEM-KEY-DUPLICATE-TEST-77"
     payload = {
         "document_id": "DOC-FHIR-DUP-01",
@@ -56,7 +85,7 @@ def test_idempotency_deduplication_suppresses_duplicate_transaction_as_no_op():
     }
 
     # 1. First execution -> Must persist
-    resp1 = client.post("/fhir/write-transaction", json=payload)
+    resp1 = client.post("/fhir/write-transaction", json=payload, headers=headers)
     assert resp1.status_code == 200
     data1 = resp1.json()
     assert data1["status"] == "persisted"
@@ -64,9 +93,9 @@ def test_idempotency_deduplication_suppresses_duplicate_transaction_as_no_op():
     bundle_id_1 = data1["fhir_bundle_id"]
 
     # 2. Second execution (same idempotency key) -> MUST be suppressed as duplicate no-op
-    resp2 = client.post("/fhir/write-transaction", json=payload)
+    resp2 = client.post("/fhir/write-transaction", json=payload, headers=headers)
     assert resp2.status_code == 200
     data2 = resp2.json()
     
     assert data2["is_duplicate"] is True
-    assert data2["fhir_bundle_id"] == bundle_id_1 # Same bundle ID returned
+    assert data2["fhir_bundle_id"] == bundle_id_1

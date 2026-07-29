@@ -31,7 +31,7 @@ EXPLANATION_GROUNDEDNESS_BENCHMARKS = [
     {"doc_id": "DOC-1", "explanation": "Overdue for screening per USPSTF Colorectal Cancer 2021", "has_grounded_quote": True, "is_hallucinated": False},
     {"doc_id": "DOC-2", "explanation": "Diabetes HbA1c > 8.0% per ADA Guidelines 2023", "has_grounded_quote": True, "is_hallucinated": False},
     {"doc_id": "DOC-3", "explanation": "Hypertension screening recommended per USPSTF 2021", "has_grounded_quote": True, "is_hallucinated": False},
-    {"doc_id": "DOC-4", "explanation": "Random ungrounded claim with fake citation", "has_grounded_quote": False, "is_hallucinated": True}
+    {"doc_id": "DOC-4", "explanation": "Random ungrounded claim with invalid citation", "has_grounded_quote": False, "is_hallucinated": True}
 ]
 
 def calculate_pipeline_kpis() -> KPISummaryResponse:

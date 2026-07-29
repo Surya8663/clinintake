@@ -1,6 +1,5 @@
 import { AuditTrailResponse, VaultIntegrityResponse } from '../types/compliance';
 
-// Detect whether running via Express BFF proxy (/api) or direct FastAPI
 const isDirectFastAPI = window.location.port === '8019';
 const API_BASE = isDirectFastAPI ? '' : '/api';
 
@@ -10,7 +9,18 @@ export interface AuditFilters {
   event_type?: string;
 }
 
-export async function fetchAuditTrail(filters?: AuditFilters): Promise<AuditTrailResponse> {
+function getAuthHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const authToken = token || localStorage.getItem('clinintake_access_token');
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  return headers;
+}
+
+export async function fetchAuditTrail(filters?: AuditFilters, token?: string): Promise<AuditTrailResponse> {
   const params = new URLSearchParams();
   if (filters?.document_id) params.set('document_id', filters.document_id);
   if (filters?.service_name) params.set('service_name', filters.service_name);
@@ -19,17 +29,21 @@ export async function fetchAuditTrail(filters?: AuditFilters): Promise<AuditTrai
   const queryString = params.toString();
   const url = `${API_BASE}/compliance/audit-trail${queryString ? `?${queryString}` : ''}`;
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: getAuthHeaders(token)
+  });
   if (!res.ok) {
-    throw new Error(`Failed to fetch audit trail: ${res.statusText}`);
+    throw new Error(`Failed to fetch audit trail: ${res.statusText} (${res.status})`);
   }
   return res.json();
 }
 
-export async function fetchVaultIntegrity(): Promise<VaultIntegrityResponse> {
-  const res = await fetch(`${API_BASE}/compliance/verify-vault`);
+export async function fetchVaultIntegrity(token?: string): Promise<VaultIntegrityResponse> {
+  const res = await fetch(`${API_BASE}/compliance/verify-vault`, {
+    headers: getAuthHeaders(token)
+  });
   if (!res.ok) {
-    throw new Error(`Failed to verify vault integrity: ${res.statusText}`);
+    throw new Error(`Failed to verify vault integrity: ${res.statusText} (${res.status})`);
   }
   return res.json();
 }

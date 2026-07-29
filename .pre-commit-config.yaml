@@ -5,7 +5,11 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        args: [--allow-multiple-documents]
       - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-json
+        files: \.json$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.2
@@ -28,9 +32,24 @@ repos:
 
   - repo: local
     hooks:
+      - id: no-runtime-fakes
+        name: Verify no mock/fake/dummy terms in runtime code
+        entry: python scripts/quality/scan_forbidden_terms.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: no-hardcoded-secrets
+        name: Verify no hardcoded secrets in source
+        entry: python scripts/quality/scan_secrets.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: pytest
         name: pytest
         entry: pytest
         language: system
         pass_filenames: false
         always_run: true
+

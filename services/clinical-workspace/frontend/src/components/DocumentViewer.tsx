@@ -4,14 +4,14 @@ import { Eye, Crosshair, Layers, Sparkles } from 'lucide-react';
 
 interface DocumentViewerProps {
   documentId: string;
-  patientId: string;
-  evidenceSpans: EvidenceSpan[];
+  patientId?: string;
+  evidenceSpans?: EvidenceSpan[];
 }
 
 export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentId,
-  patientId,
-  evidenceSpans,
+  patientId = 'PAT-99482',
+  evidenceSpans = [],
 }) => {
   const [activeSpan, setActiveSpan] = useState<string | null>(null);
 

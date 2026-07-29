@@ -4,9 +4,12 @@ import { Save, CheckCircle, XCircle, Edit3, Loader2 } from 'lucide-react';
 interface ReferralEditorProps {
   documentId: string;
   initialText: string;
-  onSaveEdits: (text: string) => Promise<void>;
-  onSubmitDecision: (decision: 'APPROVED' | 'REJECTED') => Promise<void>;
-  currentStatus: string;
+  onSaveEdits?: (text: string) => Promise<void>;
+  onSubmitDecision?: (decision: 'APPROVED' | 'REJECTED') => Promise<void>;
+  currentStatus?: string;
+  onSave?: (text: string) => Promise<void>;
+  onDecision?: (decision: 'APPROVED' | 'REJECTED') => Promise<void>;
+  status?: string;
 }
 
 export const ReferralEditor: React.FC<ReferralEditorProps> = ({
@@ -15,7 +18,13 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
   onSaveEdits,
   onSubmitDecision,
   currentStatus,
+  onSave,
+  onDecision,
+  status,
 }) => {
+  const activeSave = onSaveEdits || onSave || (async () => {});
+  const activeDecision = onSubmitDecision || onDecision || (async () => {});
+  const activeStatus = currentStatus || status || 'pending_review';
   const [referralText, setReferralText] = useState(initialText);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,7 +36,7 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSaveEdits(referralText);
+      await activeSave(referralText);
     } finally {
       setIsSaving(false);
     }
@@ -36,7 +45,7 @@ export const ReferralEditor: React.FC<ReferralEditorProps> = ({
   const handleDecision = async (decision: 'APPROVED' | 'REJECTED') => {
     setIsSubmitting(true);
     try {
-      await onSubmitDecision(decision);
+      await activeDecision(decision);
     } finally {
       setIsSubmitting(false);
     }

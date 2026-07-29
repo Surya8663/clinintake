@@ -15,20 +15,20 @@ class OrchestratorSettings(BaseSettings):
     kafka_bootstrap_servers: str = Field(default="localhost:9092")
     audit_topic: str = Field(default="audit-events")
     
-    # Downstream service URLs
+    # Real Downstream Microservice URLs
     document_gateway_url: str = Field(default="http://localhost:8001")
-    extraction_agent_url: str = Field(default="http://localhost:8002")
-    validation_agent_url: str = Field(default="http://localhost:8003")
+    document_security_filter_url: str = Field(default="http://localhost:8001")
     ocr_service_url: str = Field(default="http://localhost:8004")
-    safety_sub_agent_url: str = Field(default="http://localhost:8005")
-    ehr_writer_url: str = Field(default="http://localhost:8006")
+    extraction_agent_url: str = Field(default="http://localhost:8002")
+    patient_identity_service_url: str = Field(default="http://localhost:8005")
+    schema_validator_url: str = Field(default="http://localhost:8003")
     terminology_service_url: str = Field(default="http://localhost:8007")
     clinical_rules_engine_url: str = Field(default="http://localhost:8008")
     temporal_reasoning_engine_url: str = Field(default="http://localhost:8009")
     drug_interaction_service_url: str = Field(default="http://localhost:8010")
     guideline_retrieval_service_url: str = Field(default="http://localhost:8011")
-    audit_service_url: str = Field(default="http://localhost:8012")
-    care_gap_agent_url: str = Field(default="http://localhost:8013")
+    safety_sub_agent_url: str = Field(default="http://localhost:8005")
+    care_gap_explanation_agent_url: str = Field(default="http://localhost:8013")
     referral_drafting_agent_url: str = Field(default="http://localhost:8014")
     clinical_workspace_url: str = Field(default="http://localhost:8015")
     fhir_integration_service_url: str = Field(default="http://localhost:8006")
@@ -38,6 +38,7 @@ class OrchestratorSettings(BaseSettings):
     compliance_dashboard_url: str = Field(default="http://localhost:8019")
     metrics_dashboard_url: str = Field(default="http://localhost:8020")
     guardrail_service_url: str = Field(default="http://localhost:8021")
+    audit_service_url: str = Field(default="http://localhost:8012")
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

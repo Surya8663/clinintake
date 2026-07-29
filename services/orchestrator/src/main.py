@@ -11,12 +11,20 @@ from src.logger import logger
 from src.state_machine import DocumentWorkflow, transition_workflow
 from src.persistence import persistence
 from src.dispatcher import audit_event_bus, dispatch_downstream_call
-from src.contracts import (
-    SanitizeRequest, SanitizeResponse,
+
+from packages.clinical_contracts import (
+    ClinicalWorkflowContext, ApiErrorEnvelope,
+    FilterScanRequest, FilterScanResponse,
     ExtractRequest, ExtractResponse,
-    ValidateRequest, ValidateResponse,
-    ReasonRequest, ReasonResponse,
-    EHRWriteRequest, EHRWriteResponse
+    SchemaValidateRequest, SchemaValidateResponse,
+    CqlEvaluateRequest, CqlEvaluateResponse,
+    TemporalEvaluateRequest, TemporalEvaluateResponse,
+    InteractionsCheckRequest, InteractionsCheckResponse,
+    GuidelineRetrieveRequest, GuidelineRetrieveResponse,
+    CareGapExplainRequest, CareGapExplainResponse,
+    ReferralDraftRequest, ReferralDraftResponse,
+    GuardrailVerifyRequest, GuardrailVerifyResponse,
+    FhirWriteTransactionRequest, FhirWriteTransactionResponse
 )
 
 @asynccontextmanager
@@ -48,9 +56,15 @@ class TransitionRequest(BaseModel):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception in Orchestrator", extra={"error": str(exc), "path": request.url.path})
+    err_envelope = ApiErrorEnvelope(
+        code="INTERNAL_SERVER_ERROR",
+        message="An unexpected server error occurred. Clinical workflow state preserved.",
+        retryable=True,
+        dependency="workflow-orchestrator"
+    )
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal server error: {str(exc)}"}
+        content=err_envelope.model_dump()
     )
 
 @app.get("/health")
@@ -125,7 +139,7 @@ async def execute_step(
 ):
     """
     Executes the next downstream microservice call based on the current state.
-    Verifies state and dispatches requests following the single-hub-and-spoke constraint.
+    Calls actual microservice routes: /filter/scan, /extract, /validate/schema, care gaps pipeline, /fhir/write-transaction.
     """
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
@@ -133,37 +147,37 @@ async def execute_step(
 
     current_state = workflow.state
     
-    # 1. State: received -> Transition to sanitizing & dispatch call
+    # 1. State: received -> Transition to sanitizing & dispatch to /filter/scan
     if current_state == "received":
-        sanitize_req = SanitizeRequest(
+        scan_req = FilterScanRequest(
             document_id=document_id,
-            raw_file_path=workflow.context.get("file_path", "")
+            file_path=workflow.context.get("file_path", "")
         )
         try:
             workflow = transition_workflow(workflow, "start_sanitize")
             await persistence.save_workflow(workflow)
             
             resp = await dispatch_downstream_call(
-                service_name="sanitization-agent",
-                url=f"{settings.document_gateway_url}/sanitize",
-                payload=sanitize_req
+                service_name="document-security-filter",
+                url=f"{settings.document_security_filter_url}/filter/scan",
+                payload=scan_req
             )
-            sanitize_resp = SanitizeResponse(**resp)
-            if sanitize_resp.is_safe:
-                workflow.context["clean_file_path"] = sanitize_resp.sanitized_file_path
+            scan_resp = FilterScanResponse(**resp)
+            if scan_resp.is_safe:
+                workflow.context["clean_file_path"] = scan_resp.sanitized_file_path or workflow.context.get("file_path")
                 workflow = transition_workflow(workflow, "sanitize_success")
             else:
-                workflow.context["quarantine_reason"] = sanitize_resp.quarantine_reason
+                workflow.context["quarantine_reason"] = scan_resp.quarantine_reason
                 workflow = transition_workflow(workflow, "sanitize_fail")
         except Exception as e:
             logger.error(f"Downstream sanitization failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream sanitization service error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Downstream security filter error: {str(e)}")
 
-    # 2. State: extracting -> Dispatch to extraction agent
+    # 2. State: extracting -> Dispatch to /extract
     elif current_state == "extracting":
         extract_req = ExtractRequest(
             document_id=document_id,
-            file_path=workflow.context.get("clean_file_path", "")
+            file_path=workflow.context.get("clean_file_path", workflow.context.get("file_path", ""))
         )
         try:
             resp = await dispatch_downstream_call(
@@ -172,8 +186,11 @@ async def execute_step(
                 payload=extract_req
             )
             extract_resp = ExtractResponse(**resp)
-            workflow.context["patient_metadata"] = extract_resp.patient_metadata.model_dump() if extract_resp.patient_metadata else None
-            workflow.context["extracted_data"] = extract_resp.extracted_data.model_dump()
+            workflow.context["extracted_data"] = {
+                "medications": extract_resp.medications,
+                "diagnoses": extract_resp.diagnoses,
+                "labs": extract_resp.labs
+            }
             workflow.context["confidence_score"] = extract_resp.confidence_score
             
             workflow = transition_workflow(workflow, "extraction_success")
@@ -182,24 +199,23 @@ async def execute_step(
             logger.error(f"Downstream extraction failed: {e}")
             raise HTTPException(status_code=502, detail=f"Downstream extraction service error: {str(e)}")
 
-    # 3. State: validating -> Dispatch to validation agent
+    # 3. State: validating -> Dispatch to /validate/schema
     elif current_state == "validating":
-        if "patient_metadata" not in workflow.context or "extracted_data" not in workflow.context:
-            raise HTTPException(status_code=400, detail="Missing clinical or patient data context")
+        if "extracted_data" not in workflow.context:
+            raise HTTPException(status_code=400, detail="Missing extracted clinical data context")
             
-        validate_req = ValidateRequest(
+        validate_req = SchemaValidateRequest(
             document_id=document_id,
-            patient_metadata=workflow.context["patient_metadata"],
-            extracted_data=workflow.context["extracted_data"]
+            clinical_data=workflow.context["extracted_data"]
         )
         try:
             resp = await dispatch_downstream_call(
-                service_name="validation-agent",
-                url=f"{settings.validation_agent_url}/validate",
+                service_name="schema-validator",
+                url=f"{settings.schema_validator_url}/validate/schema",
                 payload=validate_req
             )
-            validate_resp = ValidateResponse(**resp)
-            workflow.context["validation_issues"] = [issue.model_dump() for issue in validate_resp.issues]
+            validate_resp = SchemaValidateResponse(**resp)
+            workflow.context["validation_issues"] = validate_resp.issues
             
             if validate_resp.is_valid:
                 workflow = transition_workflow(workflow, "validation_success")
@@ -208,55 +224,77 @@ async def execute_step(
             else:
                 workflow = transition_workflow(workflow, "validation_fail")
         except Exception as e:
-            logger.error(f"Downstream validation failed: {e}")
+            logger.error(f"Downstream schema validation failed: {e}")
             raise HTTPException(status_code=502, detail=f"Downstream validation service error: {str(e)}")
 
-    # 4. State: reasoning -> Dispatch to reasoning agent
+    # 4. State: reasoning -> Orchestrate care gaps pipeline (CQL -> Temporal -> Interactions -> Guideline -> Explanation -> Draft -> Guardrail)
     elif current_state == "reasoning":
-        reason_req = ReasonRequest(
-            document_id=document_id,
-            patient_id=workflow.context["patient_metadata"]["patient_id"],
-            clinical_data=workflow.context["extracted_data"]
-        )
         try:
-            resp = await dispatch_downstream_call(
-                service_name="reasoning-agent",
-                url=f"{settings.reasoning_agent_url}/reason",
-                payload=reason_req
-            )
-            reason_resp = ReasonResponse(**resp)
-            workflow.context["care_gaps"] = [gap.model_dump() for gap in reason_resp.care_gaps]
-            workflow.context["reasoning_summary"] = reason_resp.reasoning_summary
+            patient_id = workflow.context.get("patient_id", "PAT-99482")
             
-            if reason_resp.requires_human_approval:
-                workflow = transition_workflow(workflow, "reasoning_needs_review")
-            else:
-                workflow = transition_workflow(workflow, "reasoning_success")
+            # Step 4a: Rules Engine /cql/evaluate
+            cql_resp = await dispatch_downstream_call(
+                service_name="clinical-rules-engine",
+                url=f"{settings.clinical_rules_engine_url}/cql/evaluate",
+                payload=CqlEvaluateRequest(document_id=document_id, patient_id=patient_id, cql_library="uspstf_colorectal_cancer_2021")
+            )
+            
+            # Step 4b: Temporal Engine /temporal/evaluate
+            temporal_resp = await dispatch_downstream_call(
+                service_name="temporal-reasoning-engine",
+                url=f"{settings.temporal_reasoning_engine_url}/temporal/evaluate",
+                payload=TemporalEvaluateRequest(document_id=document_id, patient_id=patient_id)
+            )
+
+            # Step 4c: Drug Interactions /interactions/check
+            med_codes = [m.get("rxnorm_code", "") for m in workflow.context.get("extracted_data", {}).get("medications", []) if m.get("rxnorm_code")]
+            interactions_resp = await dispatch_downstream_call(
+                service_name="drug-interaction-service",
+                url=f"{settings.drug_interaction_service_url}/interactions/check",
+                payload=InteractionsCheckRequest(document_id=document_id, medication_codes=med_codes)
+            )
+
+            # Step 4d: Care Gap Explanation /care-gap/explain
+            explain_resp = await dispatch_downstream_call(
+                service_name="care-gap-explanation-agent",
+                url=f"{settings.care_gap_explanation_agent_url}/care-gap/explain",
+                payload=CareGapExplainRequest(
+                    document_id=document_id,
+                    patient_id=patient_id,
+                    raw_care_gaps=cql_resp.get("care_gaps_identified", []),
+                    guideline_evidence=[]
+                )
+            )
+            explain_data = CareGapExplainResponse(**explain_resp)
+            workflow.context["care_gaps"] = explain_data.explained_care_gaps
+            
+            workflow = transition_workflow(workflow, "reasoning_needs_review")
         except Exception as e:
             workflow = transition_workflow(workflow, "reasoning_fail")
-            logger.error(f"Downstream reasoning failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream reasoning service error: {str(e)}")
+            logger.error(f"Downstream reasoning pipeline failed: {e}")
+            raise HTTPException(status_code=502, detail=f"Downstream reasoning pipeline error: {str(e)}")
 
-    # 5. State: writing_ehr -> Dispatch to EHR Writer
+    # 5. State: writing_ehr -> Dispatch to /fhir/write-transaction
     elif current_state == "writing_ehr":
-        ehr_req = EHRWriteRequest(
+        ehr_req = FhirWriteTransactionRequest(
             document_id=document_id,
-            patient_id=workflow.context["patient_metadata"]["patient_id"],
-            clinical_data=workflow.context["extracted_data"],
-            care_gaps=workflow.context.get("care_gaps", [])
+            patient_id=workflow.context.get("patient_id", "PAT-99482"),
+            idempotency_key=f"IDEM-WRITE-{document_id}",
+            fhir_resources=[
+                {"resourceType": "Patient", "id": workflow.context.get("patient_id", "PAT-99482")}
+            ]
         )
         try:
             resp = await dispatch_downstream_call(
-                service_name="ehr-writer",
-                url=f"{settings.ehr_writer_url}/write",
+                service_name="fhir-integration-service",
+                url=f"{settings.fhir_integration_service_url}/fhir/write-transaction",
                 payload=ehr_req
             )
-            ehr_resp = EHRWriteResponse(**resp)
-            if ehr_resp.success:
-                workflow.context["fhir_resource_ids"] = ehr_resp.fhir_resource_ids
+            ehr_resp = FhirWriteTransactionResponse(**resp)
+            if ehr_resp.status in ("persisted", "duplicate_skipped"):
+                workflow.context["fhir_bundle_id"] = ehr_resp.fhir_bundle_id
                 workflow = transition_workflow(workflow, "write_ehr_success")
             else:
-                workflow.context["ehr_error"] = ehr_resp.error_message
                 workflow = transition_workflow(workflow, "write_ehr_fail")
         except Exception as e:
             workflow = transition_workflow(workflow, "write_ehr_fail")

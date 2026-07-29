@@ -8,6 +8,7 @@ os.environ["EHR_CLIENT_SECRET"] = "test_ehr_secret_2026"
 os.environ["EHR_API_KEY"] = "test_ehr_api_key_2026"
 os.environ["HMAC_SECRET_KEY"] = "test_hmac_secret_2026"
 os.environ["JWT_SECRET_KEY"] = "test_authorization_matrix_secret_key_2026"
+os.environ["KEYCLOAK_CLIENT_SECRET"] = "test_keycloak_client_secret_2026"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 from fastapi.testclient import TestClient

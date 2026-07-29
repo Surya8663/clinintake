@@ -3,16 +3,21 @@ import { ReviewItem } from '../types/clinical';
 import { FileText, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 interface ReviewQueueListProps {
-  items: ReviewItem[];
+  items?: ReviewItem[];
+  queue?: ReviewItem[];
   selectedDocId: string;
   onSelectDoc: (docId: string) => void;
+  errorMessage?: string | null;
+  onRetry?: () => Promise<void>;
 }
 
 export const ReviewQueueList: React.FC<ReviewQueueListProps> = ({
   items,
+  queue,
   selectedDocId,
   onSelectDoc,
 }) => {
+  const displayItems = items || queue || [];
   return (
     <div className="glass-card p-4 flex flex-col h-full">
       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
@@ -20,12 +25,12 @@ export const ReviewQueueList: React.FC<ReviewQueueListProps> = ({
           <FileText className="w-4 h-4 text-blue-600" /> Review Queue
         </h2>
         <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono border border-blue-100">
-          {items.length} Pending
+          {displayItems.length} Pending
         </span>
       </div>
 
       <div className="space-y-2 overflow-y-auto max-h-[520px] pr-1">
-        {items.map((item) => {
+        {displayItems.map((item) => {
           const isSelected = item.document_id === selectedDocId;
           return (
             <button

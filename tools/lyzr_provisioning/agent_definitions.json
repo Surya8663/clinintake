@@ -1,0 +1,63 @@
+{
+  "agents": [
+    {
+      "agent_id": "agent_ext_clin_v3",
+      "name": "Clinical Structured Extraction Agent",
+      "role": "Scanned document text clinical entity extraction engine",
+      "model": "gpt-4o",
+      "temperature": 0.0,
+      "policies": [
+        "pol_prompt_inj_v3",
+        "pol_grounding_v3",
+        "pol_no_autonomous_ehr_write"
+      ],
+      "output_schema": {
+        "type": "object",
+        "required": ["patient_id", "diagnoses", "medications", "labs"],
+        "properties": {
+          "patient_id": {"type": "object", "required": ["value", "literal_quote", "confidence"]},
+          "diagnoses": {"type": "array"},
+          "medications": {"type": "array"},
+          "labs": {"type": "array"}
+        }
+      }
+    },
+    {
+      "agent_id": "agent_exp_caregap_v3",
+      "name": "Care Gap Explanation Agent",
+      "role": "Grounded natural language explanation generator for identified care gaps",
+      "model": "gpt-4o",
+      "temperature": 0.1,
+      "policies": [
+        "pol_grounding_v3",
+        "pol_no_unsupported_claims"
+      ],
+      "output_schema": {
+        "type": "object",
+        "required": ["explanation_summary", "citations_used"],
+        "properties": {
+          "explanation_summary": {"type": "string"},
+          "citations_used": {"type": "array"}
+        }
+      }
+    },
+    {
+      "agent_id": "agent_ref_draft_v3",
+      "name": "Specialist Referral Drafting Agent",
+      "role": "Clinical specialist referral letter drafter",
+      "model": "gpt-4o",
+      "temperature": 0.1,
+      "policies": [
+        "pol_grounding_v3",
+        "pol_no_autonomous_ehr_write"
+      ],
+      "output_schema": {
+        "type": "object",
+        "required": ["referral_letter_text"],
+        "properties": {
+          "referral_letter_text": {"type": "string"}
+        }
+      }
+    }
+  ]
+}

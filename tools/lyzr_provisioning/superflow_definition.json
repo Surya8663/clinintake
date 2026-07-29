@@ -1,0 +1,151 @@
+{
+  "superflow_id": "sf_clinintake_dag_v3_99",
+  "name": "Clinical Document Processing & Care Gap SuperFlow DAG",
+  "version": "3.0.0",
+  "description": "Authoritative clinical document ingestion, extraction, reasoning, guideline retrieval, and clinician-approved FHIR write DAG.",
+  "nodes": [
+    {
+      "node_id": "ingestion_callback",
+      "type": "webhook_entry",
+      "name": "Secure Ingestion Callback",
+      "on_success": "identity_resolution",
+      "on_failure": "quarantine"
+    },
+    {
+      "node_id": "identity_resolution",
+      "type": "microservice_call",
+      "name": "Patient Identity Resolution",
+      "endpoint": "/identity/resolve",
+      "on_success": "ocr",
+      "on_failure": "quarantine"
+    },
+    {
+      "node_id": "ocr",
+      "type": "microservice_call",
+      "name": "OCR Document Scanning",
+      "endpoint": "/ocr/process",
+      "on_success": "extraction_agent",
+      "on_failure": "incomplete_extraction"
+    },
+    {
+      "node_id": "extraction_agent",
+      "type": "lyzr_agent_call",
+      "agent_id": "agent_ext_clin_v3",
+      "name": "Lyzr Structured Clinical Extraction",
+      "on_success": "terminology_normalization",
+      "on_failure": "incomplete_extraction"
+    },
+    {
+      "node_id": "terminology_normalization",
+      "type": "microservice_call",
+      "name": "SNOMED / ICD-10 Terminology Mapping",
+      "endpoint": "/terminology/map",
+      "on_success": "fhir_validation",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "fhir_validation",
+      "type": "microservice_call",
+      "name": "FHIR R4 Schema Validation",
+      "endpoint": "/validate/schema",
+      "on_success": "deterministic_rules",
+      "on_failure": "quarantine"
+    },
+    {
+      "node_id": "deterministic_rules",
+      "type": "microservice_call",
+      "name": "Clinical Rules Engine (CQL)",
+      "endpoint": "/cql/evaluate",
+      "on_success": "temporal_reasoning",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "temporal_reasoning",
+      "type": "microservice_call",
+      "name": "Temporal Care Gap Engine",
+      "endpoint": "/temporal/evaluate",
+      "on_success": "drug_interactions",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "drug_interactions",
+      "type": "microservice_call",
+      "name": "Drug-Drug & Allergy Safety Check",
+      "endpoint": "/interactions/check",
+      "on_success": "guideline_retrieval",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "guideline_retrieval",
+      "type": "microservice_call",
+      "name": "Qdrant Hybrid Guideline Retrieval",
+      "endpoint": "/guidelines/retrieve",
+      "on_success": "safety_evaluation",
+      "on_failure": "insufficient_guideline_evidence"
+    },
+    {
+      "node_id": "safety_evaluation",
+      "type": "microservice_call",
+      "name": "Safety Sub-Agent & Red-Flag Detector",
+      "endpoint": "/safety/evaluate",
+      "on_success": "care_gap_assembly",
+      "on_failure": "redflag_escalation"
+    },
+    {
+      "node_id": "care_gap_assembly",
+      "type": "internal_aggregator",
+      "name": "Clinical Decision Package Assembly",
+      "on_success": "explanation_agent",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "explanation_agent",
+      "type": "lyzr_agent_call",
+      "agent_id": "agent_exp_caregap_v3",
+      "name": "Lyzr Care Gap Explanation Agent",
+      "on_success": "referral_agent",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "referral_agent",
+      "type": "lyzr_agent_call",
+      "agent_id": "agent_ref_draft_v3",
+      "name": "Lyzr Specialist Referral Drafting Agent",
+      "on_success": "output_guardrails",
+      "on_failure": "dependency_failure"
+    },
+    {
+      "node_id": "output_guardrails",
+      "type": "microservice_call",
+      "name": "Output Verification & Grounding Guardrail",
+      "endpoint": "/guardrail/verify-grounding",
+      "on_success": "clinician_approval_wait",
+      "on_failure": "quarantine"
+    },
+    {
+      "node_id": "clinician_approval_wait",
+      "type": "human_in_the_loop_wait",
+      "name": "Clinician Approval Wait State",
+      "on_approval": "fhir_write",
+      "on_rejection": "rejected"
+    },
+    {
+      "node_id": "fhir_write",
+      "type": "microservice_call",
+      "name": "Authenticated Clinician FHIR Transaction Write",
+      "endpoint": "/fhir/write-transaction",
+      "on_success": "COMPLETED",
+      "on_failure": "retry_exhaustion"
+    }
+  ],
+  "explicit_branches": [
+    "quarantine",
+    "incomplete_extraction",
+    "insufficient_guideline_evidence",
+    "redflag_escalation",
+    "rejected",
+    "timeout",
+    "dependency_failure",
+    "retry_exhaustion"
+  ]
+}

@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
@@ -14,6 +15,17 @@ class OrchestratorSettings(BaseSettings):
     # Kafka/Redpanda configuration
     kafka_bootstrap_servers: str = Field(default="localhost:9092")
     audit_topic: str = Field(default="audit-events")
+
+    # Lyzr SuperFlow & Agent Governance Configuration
+    lyzr_api_key: str = Field(default_factory=lambda: os.getenv("LYZR_API_KEY", "lyzr_dev_master_key_2026"))
+    lyzr_base_url: str = Field(default="https://api.lyzr.ai")
+    lyzr_superflow_id: str = Field(default="sf_clinintake_dag_v3_99")
+    lyzr_extraction_agent_id: str = Field(default="agent_ext_clin_v3")
+    lyzr_explanation_agent_id: str = Field(default="agent_exp_caregap_v3")
+    lyzr_referral_agent_id: str = Field(default="agent_ref_draft_v3")
+    lyzr_policy_prompt_injection_id: str = Field(default="pol_prompt_inj_v3")
+    lyzr_policy_grounding_id: str = Field(default="pol_grounding_v3")
+    lyzr_webhook_secret: str = Field(default="sec_lyzr_webhook_hmac_2026")
     
     # Real Downstream Microservice URLs
     document_gateway_url: str = Field(default="http://localhost:8001")

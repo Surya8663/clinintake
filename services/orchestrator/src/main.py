@@ -132,18 +132,61 @@ async def transition_document(
         
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
+from src.lyzr_client import lyzr_client, LyzrApiError, LyzrGovernanceViolationError
+
+@app.post("/orchestrator/webhooks/lyzr-callback")
+async def lyzr_webhook_callback(request: Request):
+    """Webhooks callback receiver for signed Lyzr SuperFlow node completion events."""
+    raw_body = await request.body()
+    sig = request.headers.get("X-Lyzr-Signature", "")
+    if not lyzr_client.verify_webhook_signature(raw_body, sig):
+        logger.warning("[LYZR WEBHOOK] Invalid callback signature")
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    
+    data = await request.json()
+    doc_id = data.get("document_id")
+    if doc_id:
+        workflow = await persistence.get_workflow(doc_id)
+        if workflow:
+            workflow.context["lyzr_last_node"] = data.get("node_id")
+            workflow.context["lyzr_node_status"] = data.get("status")
+            await persistence.save_workflow(workflow)
+    return {"status": "accepted"}
+
 @app.post("/orchestrator/documents/{document_id}/execute-step")
 async def execute_step(
     document_id: str,
     claims: Dict[str, Any] = Depends(get_current_user_claims)
 ):
     """
-    Executes the next downstream microservice call based on the current state.
-    Calls actual microservice routes: /filter/scan, /extract, /validate/schema, care gaps pipeline, /fhir/write-transaction.
+    Authoritative workflow step runner. Starts or resumes Lyzr SuperFlow DAG execution
+    and captures execution_id, session_id, and trace_id in workflow context.
     """
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
         raise HTTPException(status_code=404, detail="Document workflow not found")
+
+    # Start or attach Lyzr SuperFlow execution
+    try:
+        lyzr_result = lyzr_client.start_superflow_execution(
+            workflow_id=settings.lyzr_superflow_id,
+            document_id=document_id,
+            input_payload={"file_path": workflow.context.get("file_path", ""), "state": workflow.state}
+        )
+        workflow.context["lyzr_execution_id"] = lyzr_result["execution_id"]
+        workflow.context["lyzr_session_id"] = lyzr_result["session_id"]
+        workflow.context["lyzr_trace_id"] = lyzr_result["trace_id"]
+        workflow.context["lyzr_status"] = lyzr_result["status"]
+        await persistence.save_workflow(workflow)
+    except (LyzrApiError, LyzrGovernanceViolationError) as e:
+        logger.error(f"[LYZR EXECUTION FAILURE] {e}")
+        err_envelope = ApiErrorEnvelope(
+            code="LYZR_SUPERFLOW_EXECUTION_FAILED",
+            message=str(e),
+            retryable=False,
+            dependency="lyzr-superflow"
+        )
+        return JSONResponse(status_code=503 if isinstance(e, LyzrApiError) else 400, content=err_envelope.model_dump())
 
     current_state = workflow.state
     

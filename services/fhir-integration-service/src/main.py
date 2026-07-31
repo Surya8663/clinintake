@@ -26,6 +26,8 @@ async def health_check():
         "ehr_client_configured": bool(settings.ehr_client_id)
     }
 
+USED_JTI_CACHE = set()
+
 @app.post("/fhir/write-transaction", response_model=FHIRTransactionResponse)
 async def write_fhir_transaction(
     request: FHIRTransactionRequest,
@@ -33,9 +35,18 @@ async def write_fhir_transaction(
 ):
     """
     Sole component with EHR write credentials.
-    Requires machine-to-machine service authentication and Redis idempotency deduplication.
+    Requires machine-to-machine service authentication, JTI anti-replay check, and Redis idempotency deduplication.
     """
     logger.info(f"Received FHIR write transaction request doc_id={request.document_id} key={request.idempotency_key} from service={claims.get('sub')}")
+
+    # JTI Anti-Replay Verification
+    payload_data = claims.get("payload", {})
+    jti = payload_data.get("jti") or claims.get("jti")
+    if jti:
+        if jti in USED_JTI_CACHE:
+            logger.warning(f"Replayed write authorization token JTI detected: '{jti}'")
+            raise HTTPException(status_code=403, detail=f"Replayed write authorization token JTI='{jti}'")
+        USED_JTI_CACHE.add(jti)
 
     if not request.idempotency_key:
         raise HTTPException(status_code=400, detail="idempotency_key must be provided for EHR write transactions")

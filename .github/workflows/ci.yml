@@ -46,7 +46,8 @@ jobs:
           EXIT=0
           for svc in services/*/; do
             [ -d "${svc}tests" ] || continue
-            PYTHONPATH="${svc}:." pytest "${svc}tests" -v --tb=short --import-mode=importlib || EXIT=$?
+            echo "Running tests in ${svc}..."
+            (cd "${svc}" && PYTHONPATH=".:src" pytest tests/ -v --tb=short --import-mode=importlib) || EXIT=$?
           done
           exit $EXIT
 

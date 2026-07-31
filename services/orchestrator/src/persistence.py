@@ -19,7 +19,9 @@ class RedisPersistence:
                 host=settings.redis_host,
                 port=settings.redis_port,
                 db=settings.redis_db,
-                decode_responses=True
+                decode_responses=True,
+                socket_connect_timeout=0.2,
+                socket_timeout=0.2
             )
         return self.client
 

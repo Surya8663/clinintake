@@ -47,7 +47,7 @@ jobs:
           for svc in services/*/; do
             [ -d "${svc}tests" ] || continue
             echo "Running tests in ${svc}..."
-            PYTHONPATH="${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/${svc}:${GITHUB_WORKSPACE}/${svc}src:." pytest "${svc}tests" -v --tb=short --import-mode=importlib --asyncio-mode=auto || EXIT=$?
+            PYTHONPATH="${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/${svc}:${GITHUB_WORKSPACE}/${svc}src:." pytest "${svc}tests" -v --tb=short --import-mode=importlib --asyncio-mode=auto || { STATUS=$?; echo "::error file=${svc}::Tests failed in ${svc} with exit code ${STATUS}"; EXIT=${STATUS}; }
           done
           exit $EXIT
 

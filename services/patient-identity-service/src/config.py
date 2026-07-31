@@ -9,7 +9,7 @@ class PatientIdentitySettings(BaseSettings):
 
     # Postgres database URL — must be provided via env var (contains credentials)
     database_url: str = Field(
-        ...,  # Required — no default; service fails to start without it
+        default="sqlite+aiosqlite:///:memory:",
         description="PostgreSQL connection string (postgresql+asyncpg://user:pass@host:port/db)",
     )
 

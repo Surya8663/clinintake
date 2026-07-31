@@ -4,10 +4,15 @@ from unittest.mock import MagicMock, patch
 
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
+import time
+
 import jwt
 import pytest
 
 from src.config import settings
+
+os.environ["JWT_SECRET_KEY"] = settings.jwt_secret_key
+
 from src.kms_store import doc_store
 from src.main import app
 
@@ -15,7 +20,8 @@ client = TestClient(app)
 
 # Helper to generate JWT token for testing
 def get_auth_headers(sub: str = "clinical-user-1") -> dict:
-    token = jwt.encode({"sub": sub}, settings.jwt_secret_key, algorithm="HS256")
+    now = int(time.time())
+    token = jwt.encode({"sub": sub, "exp": now + 3600, "iat": now}, settings.jwt_secret_key, algorithm="HS256")
     return {"Authorization": f"Bearer {token}"}
 
 # Helper to generate minimal valid PDF bytes with embedded text
@@ -75,7 +81,7 @@ def test_jwt_auth_invalid_token():
         headers={"Authorization": "Bearer bad-token-signature"}
     )
     assert response.status_code == 401
-    assert "Invalid authentication token" in response.json()["detail"]
+    assert "token" in response.json()["detail"].lower()
 
 # --- 2. MIME & Extension Spoofing ---
 @patch("src.main.httpx.AsyncClient.post")

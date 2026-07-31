@@ -14,9 +14,18 @@ os.environ["JWT_SECRET_KEY"] = "test_audit_jwt_secret_2026"
 
 from services.common.jwt_verifier import _b64_encode
 from src.main import app
-from src.vault_db import AuditVaultImmutableError, AuditVaultRecord, engine, insert_audit_event
+from src.vault_db import AuditVaultImmutableError, AuditVaultRecord, Base, engine, insert_audit_event
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True, scope="module")
+def reset_db():
+    import asyncio
+    async def _reset():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+    asyncio.run(_reset())
 
 def get_auth_header(roles=["compliance:audit:read", "service:internal"]):
     now = int(time.time())

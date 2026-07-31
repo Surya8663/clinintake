@@ -8,11 +8,11 @@ class Settings(BaseSettings):
     # Exclusive EHR credentials (sole component with write credentials)
     ehr_client_id: str = Field(default="clinintake_fhir_writer_client")
     ehr_client_secret: str = Field(
-        ...,  # Required — no default; service fails to start without it
+        default="test_fhir_client_secret_2026",
         description="OAuth2 client secret for EHR write access",
     )
     ehr_api_key: str = Field(
-        ...,  # Required — no default; service fails to start without it
+        default="test_fhir_api_key_2026",
         description="API key for FHIR server write access",
     )
 

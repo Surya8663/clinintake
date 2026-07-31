@@ -1,6 +1,16 @@
 from fastapi.testclient import TestClient
-
+import pytest
+from src.database import engine
 from src.main import app
+from src.models import Base
+
+@pytest.fixture(autouse=True)
+def setup_test_db():
+    import asyncio
+    async def create_tables():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    asyncio.run(create_tables())
 
 client = TestClient(app)
 

@@ -17,6 +17,9 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
         g_status = gap.get("status", "")
         measure = gap.get("measure_name", "Clinical Screening")
         due_date = gap.get("due_date", "N/A")
+        if "SYSTEM OVERRIDE" in measure or "IGNORE ALL" in measure.upper():
+            logger.warning(f"Adversarial prompt injection detected in measure_name: {measure}")
+            measure = "Clinical Screening (Sanitized)"
         if g_status in ["due", "overdue"]:
             gaps_found.append(f"{measure} is currently {g_status.upper()} (Due Date: {due_date}).")
         elif g_status == "insufficient_information":

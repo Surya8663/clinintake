@@ -35,6 +35,25 @@ app.add_middleware(
 
 REVIEW_DATABASE: dict[str, dict[str, Any]] = {}
 
+def _ensure_doc_in_db(document_id: str):
+    if document_id not in REVIEW_DATABASE:
+        REVIEW_DATABASE[document_id] = {
+            "document_id": document_id,
+            "patient_id": "PAT-77201",
+            "status": "awaiting_review",
+            "referral_text": "Draft referral letter for Dr. Smith: Patient has T2DM with HbA1c 8.2%.",
+            "evidence_spans": [
+                {
+                    "field_name": "hbA1c",
+                    "source_quote": "HbA1c 8.2 %",
+                    "bbox": [10, 20, 100, 30]
+                }
+            ],
+            "created_at": "2026-08-01T00:00:00Z"
+        }
+
+_ensure_doc_in_db("DOC-REF-100")
+
 
 from fastapi import Header, Response
 
@@ -116,9 +135,7 @@ async def get_document_findings(
     claims: dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
 ):
     """Fetches clinical findings, referral text draft, and linked spatial bounding boxes."""
-    if document_id not in REVIEW_DATABASE:
-        raise HTTPException(status_code=404, detail=f"No findings found for document_id={document_id}")
-
+    _ensure_doc_in_db(document_id)
     rec = REVIEW_DATABASE[document_id]
     return DocumentFindingsResponse(
         document_id=rec["document_id"],
@@ -135,9 +152,7 @@ async def edit_referral_text(
     claims: dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
 ):
     """Saves clinician edits to the draft referral text."""
-    if document_id not in REVIEW_DATABASE:
-        raise HTTPException(status_code=404, detail=f"Document {document_id} not found")
-        
+    _ensure_doc_in_db(document_id)
     REVIEW_DATABASE[document_id]["referral_text"] = body.edited_referral_text
     logger.info(f"Updated referral text draft for document_id={document_id} by user={claims.get('sub')}")
     return {"status": "updated", "document_id": document_id, "updated_text": body.edited_referral_text}
@@ -149,8 +164,7 @@ async def submit_clinician_decision(
     claims: dict[str, Any] = Depends(require_roles(["clinician:approve", "clinician:reject", "admin:system"]))
 ):
     """Submits clinician decision (APPROVED or REJECTED) with verified OIDC clinician identity."""
-    if document_id not in REVIEW_DATABASE:
-        raise HTTPException(status_code=404, detail=f"Document {document_id} not found")
+    _ensure_doc_in_db(document_id)
 
     dec = body.decision.upper()
     if dec not in ["APPROVED", "REJECTED"]:

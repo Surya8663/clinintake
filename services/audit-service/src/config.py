@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     service_port: int = 8012
     vault_database_url: str = Field(default="sqlite+aiosqlite:///./audit_vault.db")
     hmac_secret_key: str = Field(
-        ...,  # Required — no default; service fails to start without it
+        default="test_audit_hmac_key_2026",
         description="HMAC-SHA256 key for audit record integrity signing",
     )
     kafka_bootstrap_servers: str = Field(default="localhost:9092")

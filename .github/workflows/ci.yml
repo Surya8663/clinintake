@@ -40,8 +40,12 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install pytest pytest-cov pytest-asyncio pydantic pydantic-settings fastapi httpx python-jose sqlalchemy aiosqlite python-json-logger cryptography filetype Pillow transitions qdrant-client pypdf aiokafka rapidfuzz fhir.resources python-dateutil pytesseract redis alembic
+        run: pip install pytest pytest-cov pytest-asyncio pydantic pydantic-settings fastapi httpx python-jose PyJWT python-multipart sqlalchemy aiosqlite python-json-logger cryptography filetype Pillow transitions qdrant-client pypdf aiokafka rapidfuzz fhir.resources python-dateutil pytesseract redis alembic
       - name: Run unit tests
+        env:
+          LYZR_API_KEY: "mock-ci-key-for-unit-tests"
+          LLM_API_KEY: "mock-ci-key-for-unit-tests"
+          JWT_SECRET_KEY: "mock-secret-key-for-unit-tests"
         run: |
           EXIT=0
           for svc in services/*/; do

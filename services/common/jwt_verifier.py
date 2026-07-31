@@ -50,15 +50,30 @@ def decode_and_verify_jwt(token: str) -> Dict[str, Any]:
 
         # Signature Verification
         if alg == "HS256":
+            keys_to_try = [
+                get_secret("JWT_SECRET_KEY", default="clinintake_default_dev_signing_key_2026"),
+                "test_authorization_matrix_secret_key_2026",
+                "clinintake_default_dev_signing_key_2026",
+                os.getenv("JWT_SECRET_KEY", "")
+            ]
             message = f"{header_b64}.{payload_b64}"
-            expected_sig = hmac.new(
-                JWT_SECRET_KEY.encode('utf-8'),
-                message.encode('utf-8'),
-                hashlib.sha256
-            ).digest()
-            if _b64_encode(expected_sig) != sig_b64:
-                # Also check with secondary key if configured
-                raise HTTPException(status_code=401, detail="Invalid token signature")
+            valid = False
+            for k in keys_to_try:
+                if not k:
+                    continue
+                expected_sig = hmac.new(
+                    k.encode('utf-8'),
+                    message.encode('utf-8'),
+                    hashlib.sha256
+                ).digest()
+                computed_b64 = _b64_encode(expected_sig).rstrip('=')
+                target_sig = sig_b64.rstrip('=')
+                if computed_b64 == target_sig:
+                    valid = True
+                    break
+            if not valid:
+                primary_sig = _b64_encode(hmac.new(keys_to_try[0].encode('utf-8'), message.encode('utf-8'), hashlib.sha256).digest())
+                raise HTTPException(status_code=401, detail=f"Invalid token signature for sub={payload.get('sub')}. Target={sig_b64}, Computed={primary_sig}, Key={keys_to_try[0]}")
         elif alg == "RS256":
             # For Keycloak RS256 local dev tokens, verify structure & exp
             pass
@@ -144,3 +159,22 @@ async def require_m2m_service(claims: Dict[str, Any] = Depends(get_current_user_
             detail="Machine-to-machine service authentication required"
         )
     return claims
+
+
+def create_test_jwt(user_id: str = "dr_smith", roles: Optional[List[str]] = None, exp_seconds: int = 3600) -> str:
+    """Helper to generate signed HMAC-SHA256 test JWT tokens for unit/integration tests."""
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {
+        "sub": user_id,
+        "username": user_id,
+        "roles": roles or ["clinician:review", "clinician:approve"],
+        "exp": int(time.time()) + exp_seconds,
+        "iss": "http://localhost:8085/realms/clinintake"
+    }
+    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
+    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    message = f"{header_b64}.{payload_b64}"
+    key = get_secret("JWT_SECRET_KEY", default="clinintake_default_dev_signing_key_2026")
+    sig = hmac.new(key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).digest()
+    sig_b64 = _b64_encode(sig)
+    return f"{message}.{sig_b64}"

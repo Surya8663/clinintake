@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from src.config import settings
 from src.logger import logger
 from services.common.jwt_verifier import decode_and_verify_jwt, _b64_encode, _b64_decode
+from services.common.secrets_loader import get_secret
 
 ROLE_SCOPES: Dict[str, List[str]] = {
     "TREATING_CLINICIAN": ["clinician:review", "clinician:approve", "clinician:reject"],
@@ -71,8 +72,9 @@ def create_short_lived_jwt_access_token(username: str, role: str, scopes: List[s
     payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
     message = f"{header_b64}.{payload_b64}"
 
+    jwt_key = get_secret("JWT_SECRET_KEY", default=settings.jwt_secret_key)
     signature = hmac.new(
-        settings.jwt_secret_key.encode('utf-8'),
+        jwt_key.encode('utf-8'),
         message.encode('utf-8'),
         hashlib.sha256
     ).digest()
@@ -112,8 +114,9 @@ def create_m2m_service_token(client_id: str, client_secret: str) -> Tuple[str, i
     payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
     message = f"{header_b64}.{payload_b64}"
 
+    jwt_key = get_secret("JWT_SECRET_KEY", default=settings.jwt_secret_key)
     signature = hmac.new(
-        settings.jwt_secret_key.encode('utf-8'),
+        jwt_key.encode('utf-8'),
         message.encode('utf-8'),
         hashlib.sha256
     ).digest()

@@ -20,15 +20,17 @@ class QdrantCollectionError(Exception):
 def _generate_dense_vector(text: str, dim: int = 384) -> List[float]:
     """
     Generates a deterministic 384-dimensional dense semantic embedding.
-    Uses SHA-256 normalized vector projection for reliable local & container operation.
+    Uses position-independent SHA-256 normalized vector projection.
     """
-    words = text.lower().split()
+    words = [w.strip(".,;:()").lower() for w in text.split() if w.strip(".,;:()")]
+    if not words:
+        return [0.0] * dim
     vector = [0.0] * dim
-    for idx, word in enumerate(words):
+    for word in words:
         h = hashlib.sha256(word.encode('utf-8')).digest()
-        for i in range(min(16, dim)):
+        for i in range(dim):
             val = (h[i % len(h)] - 128) / 128.0
-            vector[(i * 23 + idx) % dim] += val
+            vector[i] += val
     
     # Normalize vector to unit length
     magnitude = (sum(v * v for v in vector)) ** 0.5
@@ -100,8 +102,13 @@ class QdrantGuidelineRepository:
                     }
                 )
                 # Create payload indexes
-                indexed_fields = ["is_active", "jurisdiction", "version", "effective_date", "guideline_id", "source_organization"]
-                for field in indexed_fields:
+                client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="is_active",
+                    field_schema=models.PayloadSchemaType.BOOL
+                )
+                keyword_fields = ["jurisdiction", "version", "effective_date", "guideline_id", "source_organization"]
+                for field in keyword_fields:
                     client.create_payload_index(
                         collection_name=self.collection_name,
                         field_name=field,
@@ -222,32 +229,24 @@ class QdrantGuidelineRepository:
         qdrant_filter = models.Filter(must=must_conditions)
         dense_query_vec = _generate_dense_vector(query)
 
-        # Execute dense search via qdrant-client query_points
+        # Execute dense search via Qdrant query_points (qdrant-client 1.17+)
         try:
-            if hasattr(client, "query_points"):
-                response = client.query_points(
-                    collection_name=self.collection_name,
-                    query=dense_query_vec,
-                    using=settings.dense_vector_name,
-                    query_filter=qdrant_filter,
-                    limit=10,
-                    score_threshold=threshold
-                )
-                search_results = getattr(response, "points", response)
-            else:
-                search_results = client.search(
-                    collection_name=self.collection_name,
-                    query_vector=(settings.dense_vector_name, dense_query_vec),
-                    query_filter=qdrant_filter,
-                    limit=10,
-                    score_threshold=threshold
-                )
+            res = client.query_points(
+                collection_name=self.collection_name,
+                query=dense_query_vec,
+                using=settings.dense_vector_name,
+                query_filter=qdrant_filter,
+                limit=10
+            )
+            search_results = getattr(res, "points", res)
         except Exception as e:
             logger.error(f"Qdrant query execution error: {e}")
             search_results = []
 
         matches: List[GuidelineMatch] = []
         for hit in search_results:
+            if float(hit.score) < threshold:
+                continue
             payload = hit.payload or {}
             matches.append(
                 GuidelineMatch(

@@ -1,6 +1,5 @@
-import jwt
 from fastapi import Header, HTTPException, status
-from src.config import settings
+from services.common.jwt_verifier import decode_and_verify_jwt
 from src.logger import logger
 
 def verify_jwt_token(authorization: str = Header(...)) -> dict:
@@ -13,14 +12,13 @@ def verify_jwt_token(authorization: str = Header(...)) -> dict:
     
     token = authorization.split(" ")[1]
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=["HS256"]
-        )
-        logger.info(f"JWT verified successfully for user: {payload.get('sub', 'unknown')}")
-        return payload
-    except jwt.PyJWTError as e:
+        claims = decode_and_verify_jwt(token)
+        logger.info(f"JWT verified successfully for user: {claims.get('sub', 'unknown')}")
+        return claims
+    except HTTPException as e:
+        logger.warning(f"JWT verification failed: {e.detail}")
+        raise e
+    except Exception as e:
         logger.warning(f"JWT signature verification failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

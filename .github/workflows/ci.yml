@@ -39,15 +39,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install pytest
-        run: pip install pytest pytest-cov pydantic pydantic-settings fastapi httpx python-jose
+      - name: Install dependencies
+        run: pip install pytest pytest-cov pytest-asyncio pydantic pydantic-settings fastapi httpx python-jose sqlalchemy aiosqlite python-json-logger cryptography filetype Pillow transitions qdrant-client
       - name: Run unit tests
         run: |
           EXIT=0
           for svc in services/*/; do
             [ -d "${svc}tests" ] || continue
             echo "Running tests in ${svc}..."
-            (cd "${svc}" && PYTHONPATH=".:src" pytest tests/ -v --tb=short --import-mode=importlib) || EXIT=$?
+            PYTHONPATH="${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/${svc}:${GITHUB_WORKSPACE}/${svc}src:." pytest "${svc}tests" -v --tb=short --import-mode=importlib || EXIT=$?
           done
           exit $EXIT
 

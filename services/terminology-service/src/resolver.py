@@ -1,9 +1,10 @@
-import httpx
 import difflib
-from typing import Optional, Tuple
-from src.models import TerminologyMapResponse
+
+import httpx
+
 from src.config import settings
 from src.logger import logger
+from src.models import TerminologyMapResponse
 
 # Comprehensive clinical terminology subset index for LOINC & SNOMED CT
 CLINICAL_SNOMED_INDEX = {
@@ -34,7 +35,7 @@ CLINICAL_RXNORM_INDEX = {
     "atorvastatin": ("617314", "Atorvastatin 20 MG Oral Tablet", 0.95),
 }
 
-async def map_rxnorm_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]:
+async def map_rxnorm_term(term: str) -> tuple[str | None, str | None, float, str]:
     """Queries NLM RxNav REST API for live RxCUI resolution with fuzzy index fallback."""
     url = f"{settings.rxnav_api_base_url}/rxcui.json"
     params = {"name": term}
@@ -68,7 +69,7 @@ async def map_rxnorm_term(term: str) -> Tuple[Optional[str], Optional[str], floa
                     score = float(cand.get("score", 50)) / 100.0
                     if score >= 0.70:
                         return rxcui, cand_name, round(min(score, 0.95), 2), "NLM_RxNav_Approximate"
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, TypeError) as e:
         logger.warning(f"NLM RxNav API request failed or timed out: {e}")
         
     # Local fallback for offline/test environment with fuzzy matching for misspelled drug names
@@ -87,7 +88,7 @@ async def map_rxnorm_term(term: str) -> Tuple[Optional[str], Optional[str], floa
 
     return None, None, 0.0, "NLM_RxNav_API"
 
-def map_snomed_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]:
+def map_snomed_term(term: str) -> tuple[str | None, str | None, float, str]:
     """Normalizes term to SNOMED CT code system with exact and fuzzy matching."""
     clean_term = term.lower().strip()
     if clean_term in CLINICAL_SNOMED_INDEX:
@@ -108,7 +109,7 @@ def map_snomed_term(term: str) -> Tuple[Optional[str], Optional[str], float, str
 
     return None, None, 0.0, "SNOMED_CT_Index"
 
-def map_loinc_term(term: str) -> Tuple[Optional[str], Optional[str], float, str]:
+def map_loinc_term(term: str) -> tuple[str | None, str | None, float, str]:
     """Normalizes term to LOINC code system with exact and fuzzy matching."""
     clean_term = term.lower().strip()
     if clean_term in CLINICAL_LOINC_INDEX:

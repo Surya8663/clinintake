@@ -282,7 +282,7 @@ async def execute_step(
     # 4. State: reasoning -> Orchestrate care gaps pipeline (CQL -> Temporal -> Interactions -> Guideline -> Explanation -> Draft -> Guardrail)
     elif current_state == "reasoning":
         try:
-            patient_id = workflow.context.get("patient_id", "PAT-99482")
+            patient_id = workflow.context.get("patient_id", "")
             
             # Step 4a: Rules Engine /cql/evaluate
             cql_resp = await dispatch_downstream_call(
@@ -328,12 +328,13 @@ async def execute_step(
 
     # 5. State: writing_ehr -> Dispatch to /fhir/write-transaction
     elif current_state == "writing_ehr":
+        target_patient_id = workflow.context.get("patient_id", "")
         ehr_req = FhirWriteTransactionRequest(
             document_id=document_id,
-            patient_id=workflow.context.get("patient_id", "PAT-99482"),
+            patient_id=target_patient_id,
             idempotency_key=f"IDEM-WRITE-{document_id}",
             fhir_resources=[
-                {"resourceType": "Patient", "id": workflow.context.get("patient_id", "PAT-99482")}
+                {"resourceType": "Patient", "id": target_patient_id}
             ]
         )
         try:

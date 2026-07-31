@@ -1,11 +1,10 @@
 import os
 import shutil
+import time
 from unittest.mock import MagicMock, patch
 
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
-import time
-
 import jwt
 import pytest
 

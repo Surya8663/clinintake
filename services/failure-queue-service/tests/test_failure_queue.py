@@ -1,8 +1,10 @@
 from fastapi.testclient import TestClient
 import pytest
+
 from src.database import engine
 from src.main import app
 from src.models import Base
+
 
 @pytest.fixture(autouse=True)
 def setup_test_db():

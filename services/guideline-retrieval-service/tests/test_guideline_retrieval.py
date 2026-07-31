@@ -1,10 +1,12 @@
 import os
+
 os.environ["QDRANT_URL"] = ":memory:"
 
 from fastapi.testclient import TestClient
 import pytest
 
 from src.config import settings
+
 settings.qdrant_url = ":memory:"
 
 from src.main import app

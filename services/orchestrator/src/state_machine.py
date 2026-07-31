@@ -1,26 +1,27 @@
-from typing import Optional, Dict, Any
+from typing import Any
+
 from transitions import Machine, MachineError
-from packages.clinical_contracts import ClinicalWorkflowState, is_valid_transition
+
+from packages.clinical_contracts import ClinicalWorkflowState
 from src.logger import logger
+
 
 class UnapprovedEHRWriteError(Exception):
     """Raised when an attempt to transition to writing_ehr occurs without signed clinician approval."""
-    pass
 
 class OptimisticLockError(Exception):
     """Raised when a state transition or save fails due to version mismatch."""
-    pass
 
 class DocumentWorkflow:
     def __init__(
         self,
         document_id: str,
         state: str = "received",
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         version: int = 1,
-        trace_id: Optional[str] = None,
-        correlation_id: Optional[str] = None,
-        lyzr_execution_id: Optional[str] = None
+        trace_id: str | None = None,
+        correlation_id: str | None = None,
+        lyzr_execution_id: str | None = None
     ):
         self.document_id = document_id
         self.state = state
@@ -70,7 +71,7 @@ class WorkflowMachine:
 def transition_workflow(
     model: DocumentWorkflow,
     trigger: str,
-    expected_version: Optional[int] = None,
+    expected_version: int | None = None,
     *args,
     **kwargs
 ) -> DocumentWorkflow:

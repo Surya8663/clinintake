@@ -3,11 +3,12 @@ PHI-Safe Evaluation Benchmark - 15 Cases
 Covers all required test scenarios for the ClinIntake hackathon evaluation criteria.
 All test data is synthetic/fabricated and contains no real patient PHI.
 """
-import pytest
 import datetime
-from fastapi.testclient import TestClient
-import sys
 from pathlib import Path
+import sys
+
+from fastapi.testclient import TestClient
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 

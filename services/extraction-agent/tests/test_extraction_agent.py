@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.extractor import perform_quote_grounded_extraction
+from src.main import app
 
 client = TestClient(app)
 

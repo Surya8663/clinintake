@@ -1,16 +1,19 @@
+from typing import Any
+
 import httpx
-from typing import Dict, Any, Optional
+
 from src.config import settings
 from src.logger import logger
 
+
 async def assemble_clinical_decision_package(
     document_id: str,
-    patient_id: Optional[str] = None,
-    clinical_text: Optional[str] = None,
-    symptoms: Optional[list] = None,
-    vitals: Optional[dict] = None,
-    medications: Optional[list] = None
-) -> Dict[str, Any]:
+    patient_id: str | None = None,
+    clinical_text: str | None = None,
+    symptoms: list | None = None,
+    vitals: dict | None = None,
+    medications: list | None = None
+) -> dict[str, Any]:
     """
     Genuinely awaits and aggregates real responses from all 5 reasoning/retrieval engines
     into a single structured Clinical Decision Package.

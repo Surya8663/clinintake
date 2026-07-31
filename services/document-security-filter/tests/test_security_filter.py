@@ -1,14 +1,16 @@
 import io
-import pytest
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+import pytest
+
 from src.main import app
 
 client = TestClient(app)
 
 # Helper to generate minimal valid PDF bytes with embedded text
 def generate_minimal_pdf(text: str = "") -> bytes:
-    content_stream = f"BT /F1 12 Tf 72 712 Td ({text}) Tj ET\n".encode("utf-8")
+    content_stream = f"BT /F1 12 Tf 72 712 Td ({text}) Tj ET\n".encode()
     stream_len = len(content_stream)
     
     pdf_bytes = (

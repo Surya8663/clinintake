@@ -1,5 +1,7 @@
 import os
+
 from fastapi.testclient import TestClient
+
 os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_2026_x99"
 
 from src.main import app

@@ -1,15 +1,17 @@
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from fhir.resources.condition import Condition
 from fhir.resources.medicationstatement import MedicationStatement
 from fhir.resources.observation import Observation
 from fhir.resources.patient import Patient
 
-from src.models import ExtractionData
 from src.logger import logger
+from src.models import ExtractionData
 
-def build_and_validate_fhir_resources(extraction_data: ExtractionData) -> List[Dict[str, Any]]:
+
+def build_and_validate_fhir_resources(extraction_data: ExtractionData) -> list[dict[str, Any]]:
     """Builds and validates FHIR R4 JSON resources using real fhir.resources library models."""
-    validated_resources: List[Dict[str, Any]] = []
+    validated_resources: list[dict[str, Any]] = []
 
     # 1. Patient Resource
     if extraction_data.patient_id.value != "Incomplete":

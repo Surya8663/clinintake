@@ -1,18 +1,21 @@
 import os
-import sys
-import datetime
-from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from typing import Any
 
-from services.common.jwt_verifier import require_roles, get_current_user_claims
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from services.common.jwt_verifier import require_roles
 from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
 from src.models import (
-    ReviewItem, DocumentFindingsResponse, EvidenceSpan,
-    ReferralEditRequest, DecisionSubmitRequest, DecisionSubmitResponse
+    DecisionSubmitRequest,
+    DecisionSubmitResponse,
+    DocumentFindingsResponse,
+    EvidenceSpan,
+    ReferralEditRequest,
+    ReviewItem,
 )
 
 app = FastAPI(
@@ -30,16 +33,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-REVIEW_DATABASE: Dict[str, Dict[str, Any]] = {}
+REVIEW_DATABASE: dict[str, dict[str, Any]] = {}
+
 
 from fastapi import Header, Response
-import io
+
 
 @app.get("/workspace/document/{document_id}/content")
 async def stream_document_content(
     document_id: str,
-    range: Optional[str] = Header(None),
-    claims: Dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
+    range: str | None = Header(None),
+    claims: dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
 ):
     """
     Secure document-content streaming endpoint for Clinical Workspace.
@@ -93,8 +97,8 @@ async def health_check():
         "service": settings.service_name
     }
 
-@app.get("/workspace/reviews", response_model=List[ReviewItem])
-async def list_review_queue(claims: Dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))):
+@app.get("/workspace/reviews", response_model=list[ReviewItem])
+async def list_review_queue(claims: dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))):
     """Fetches list of documents awaiting clinician review."""
     return [
         ReviewItem(
@@ -109,7 +113,7 @@ async def list_review_queue(claims: Dict[str, Any] = Depends(require_roles(["cli
 @app.get("/workspace/findings/{document_id}", response_model=DocumentFindingsResponse)
 async def get_document_findings(
     document_id: str,
-    claims: Dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
 ):
     """Fetches clinical findings, referral text draft, and linked spatial bounding boxes."""
     if document_id not in REVIEW_DATABASE:
@@ -128,7 +132,7 @@ async def get_document_findings(
 async def edit_referral_text(
     document_id: str,
     body: ReferralEditRequest,
-    claims: Dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["clinician:review", "admin:system"]))
 ):
     """Saves clinician edits to the draft referral text."""
     if document_id not in REVIEW_DATABASE:
@@ -142,7 +146,7 @@ async def edit_referral_text(
 async def submit_clinician_decision(
     document_id: str,
     body: DecisionSubmitRequest,
-    claims: Dict[str, Any] = Depends(require_roles(["clinician:approve", "clinician:reject", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["clinician:approve", "clinician:reject", "admin:system"]))
 ):
     """Submits clinician decision (APPROVED or REJECTED) with verified OIDC clinician identity."""
     if document_id not in REVIEW_DATABASE:

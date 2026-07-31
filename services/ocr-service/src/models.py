@@ -1,5 +1,6 @@
+
 from pydantic import BaseModel, Field
-from typing import List, Optional
+
 
 class BoundingBox(BaseModel):
     x_min: int = Field(..., description="X minimum coordinate (left)")
@@ -16,18 +17,18 @@ class OCRWord(BaseModel):
 class OCRLine(BaseModel):
     line_text: str
     bbox: BoundingBox
-    words: List[OCRWord] = []
+    words: list[OCRWord] = []
 
 class OCRPage(BaseModel):
     page_number: int
     width: int
     height: int
     text: str
-    words: List[OCRWord] = []
-    lines: List[OCRLine] = []
+    words: list[OCRWord] = []
+    lines: list[OCRLine] = []
 
 class OCRResponse(BaseModel):
     document_id: str
-    pages: List[OCRPage]
+    pages: list[OCRPage]
     full_text: str
     engine_used: str

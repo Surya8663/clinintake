@@ -1,8 +1,8 @@
-import hmac
 import hashlib
-import json
-from typing import Dict, Any
+import hmac
+
 from src.config import settings
+
 
 def compute_entry_hash(prev_hash: str, event_id: str, document_id: str, service_name: str, event_type: str, payload_json: str, timestamp: str) -> str:
     """Computes SHA-256 hash chaining for an audit log entry."""

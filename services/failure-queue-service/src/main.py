@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
 from src.config import settings
-from src.logger import logger
-from src.models import FailureEnqueueRequest, FailureItemResponse, DLQSummaryResponse
 from src.dlq_engine import enqueue_failure_item, execute_retry, list_dlq_items
+from src.logger import logger
+from src.models import DLQSummaryResponse, FailureEnqueueRequest, FailureItemResponse
 
 app = FastAPI(
     title=settings.service_name,

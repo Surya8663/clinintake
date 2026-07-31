@@ -3,9 +3,10 @@ Alembic database migration environment configuration.
 All migrations run at service startup via the deployment entrypoint.
 """
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
 import os
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 

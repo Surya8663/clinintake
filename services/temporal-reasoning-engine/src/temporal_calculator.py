@@ -1,10 +1,11 @@
 import datetime
-from typing import Optional, Tuple
+
 from dateutil.parser import parse as parse_date
 from dateutil.relativedelta import relativedelta
 
-from src.models import TemporalEvaluateRequest, TemporalEvaluateResponse
 from src.logger import logger
+from src.models import TemporalEvaluateRequest, TemporalEvaluateResponse
+
 
 def calculate_temporal_care_gap(request: TemporalEvaluateRequest) -> TemporalEvaluateResponse:
     """Calculates exact temporal screening care gap state using real date arithmetic."""
@@ -39,10 +40,7 @@ def calculate_temporal_care_gap(request: TemporalEvaluateRequest) -> TemporalEva
             rationale=f"Invalid date format: {request.last_screening_date}"
         )
 
-    if request.reference_date:
-        ref_date = parse_date(request.reference_date).date()
-    else:
-        ref_date = datetime.date.today()
+    ref_date = parse_date(request.reference_date).date() if request.reference_date else datetime.date.today()
 
     # Guideline Age Boundaries (e.g. Colonoscopy 45-75 yrs, Mammogram 40-74 yrs)
     interval_months = request.guideline_interval_months

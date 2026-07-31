@@ -1,12 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from services.common.security_headers import SecurityHeadersMiddleware
 from packages.clinical_contracts import ApiErrorEnvelope
+from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
 from src.models import GuidelineQueryRequest, GuidelineQueryResponse
-from src.qdrant_repository import qdrant_repo, QdrantUnavailableError, QdrantCollectionError
+from src.qdrant_repository import QdrantUnavailableError, qdrant_repo
 
 app = FastAPI(
     title=settings.service_name,
@@ -59,7 +59,7 @@ async def retrieve_guideline_passages(request: GuidelineQueryRequest):
         logger.error(f"Error querying guideline vector store: {e}")
         err_envelope = ApiErrorEnvelope(
             code="GUIDELINE_RETRIEVAL_ERROR",
-            message=f"An error occurred while executing guideline hybrid search: {str(e)}",
+            message=f"An error occurred while executing guideline hybrid search: {e!s}",
             retryable=False,
             dependency="guideline-retrieval-service"
         )

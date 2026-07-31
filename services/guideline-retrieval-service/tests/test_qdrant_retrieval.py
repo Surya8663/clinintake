@@ -1,8 +1,9 @@
 import os
-import sys
-import pytest
 from pathlib import Path
+import sys
 from unittest.mock import patch
+
+import pytest
 
 os.environ["QDRANT_URL"] = ":memory:"
 
@@ -15,10 +16,11 @@ for k in list(sys.modules.keys()):
 
 sys.path.insert(0, str(SERVICE_DIR))
 
+from fastapi.testclient import TestClient
+
 from src.main import app
 from src.models import GuidelineChunk
-from src.qdrant_repository import qdrant_repo, QdrantUnavailableError
-from fastapi.testclient import TestClient
+from src.qdrant_repository import QdrantUnavailableError, qdrant_repo
 
 client = TestClient(app)
 

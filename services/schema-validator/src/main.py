@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 
 from src.config import settings

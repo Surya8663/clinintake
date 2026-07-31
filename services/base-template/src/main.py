@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+
 from src.config import settings
 from src.logger import logger
 

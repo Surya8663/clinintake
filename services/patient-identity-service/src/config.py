@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class PatientIdentitySettings(BaseSettings):
     service_name: str = Field(default="patient-identity-service")

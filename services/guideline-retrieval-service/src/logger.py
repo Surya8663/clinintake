@@ -1,7 +1,10 @@
 import logging
 import sys
+
 from pythonjsonlogger import jsonlogger
+
 from src.config import settings
+
 
 def setup_logging() -> logging.Logger:
     logger = logging.getLogger(settings.service_name)

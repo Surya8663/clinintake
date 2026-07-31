@@ -1,11 +1,14 @@
-import uuid
 import datetime
+from typing import Any
+import uuid
+
 import httpx
-from typing import List, Dict, Any, Tuple
+
 from src.config import settings
 from src.logger import logger
 
-def assemble_fhir_r4_transaction_bundle(document_id: str, patient_id: str, fhir_resources: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+def assemble_fhir_r4_transaction_bundle(document_id: str, patient_id: str, fhir_resources: list[dict[str, Any]]) -> dict[str, Any]:
     """Assembles a valid FHIR R4 transaction Bundle object."""
     bundle_id = f"bundle-{uuid.uuid4().hex[:8]}"
     entries = []
@@ -34,7 +37,7 @@ def assemble_fhir_r4_transaction_bundle(document_id: str, patient_id: str, fhir_
 
     return bundle
 
-async def execute_fhir_transaction(bundle: Dict[str, Any]) -> Tuple[str, List[str]]:
+async def execute_fhir_transaction(bundle: dict[str, Any]) -> tuple[str, list[str]]:
     """
     Executes transaction write against local HAPI FHIR server,
     verifying resource persistence retrievability.

@@ -1,8 +1,9 @@
+
 import httpx
-from typing import List, Tuple
-from src.models import DrugItem, AllergyItem, DrugInteraction, InteractionCheckResponse
+
 from src.config import settings
 from src.logger import logger
+from src.models import AllergyItem, DrugInteraction, DrugItem, InteractionCheckResponse
 
 # Deterministic drug interaction database fallback index for offline execution
 KNOWN_DRUG_INTERACTIONS = [
@@ -19,14 +20,14 @@ KNOWN_DRUG_ALLERGIES = [
     ("sulfa", "sulfamethoxazole", "high", "Sulfamethoxazole contains a sulfonamide moiety causing severe allergic reaction.", "drug-allergy"),
 ]
 
-async def check_rxnav_api_interactions(rxcuis: List[str]) -> List[DrugInteraction]:
+async def check_rxnav_api_interactions(rxcuis: list[str]) -> list[DrugInteraction]:
     """Queries NLM RxNav Interaction API for drug-drug interactions using real RxCUI codes."""
     if len(rxcuis) < 2:
         return []
         
     rx_str = "+".join(rxcuis)
     url = f"{settings.rxnav_interaction_api_url}/list.json?rxcuis={rx_str}"
-    interactions: List[DrugInteraction] = []
+    interactions: list[DrugInteraction] = []
     
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
@@ -58,9 +59,9 @@ async def check_rxnav_api_interactions(rxcuis: List[str]) -> List[DrugInteractio
         
     return interactions
 
-async def check_all_interactions(medications: List[DrugItem], allergies: List[AllergyItem]) -> InteractionCheckResponse:
+async def check_all_interactions(medications: list[DrugItem], allergies: list[AllergyItem]) -> InteractionCheckResponse:
     """Checks drug-drug and drug-allergy interactions deterministically using API and clinical database."""
-    interactions: List[DrugInteraction] = []
+    interactions: list[DrugInteraction] = []
 
     # 1. Collect RxCUIs and try live NLM RxNav API
     rxcuis = [m.rxnorm_code for m in medications if m.rxnorm_code and m.rxnorm_code != "000000"]

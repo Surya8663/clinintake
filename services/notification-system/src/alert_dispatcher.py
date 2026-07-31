@@ -1,16 +1,16 @@
 import time
-import httpx
-from typing import List
+
 from src.config import settings
-from src.models import AlertDispatchRequest, AlertDispatchResponse, ChannelDispatchStatus
 from src.logger import logger
+from src.models import AlertDispatchRequest, AlertDispatchResponse, ChannelDispatchStatus
+
 
 async def dispatch_multi_channel_alerts(request: AlertDispatchRequest) -> AlertDispatchResponse:
     """Dispatches emergency alerts across multi-channels and measures latency against < 2.0s SLA."""
     start_time = time.time()
     logger.info(f"Dispatches critical alert for document_id={request.document_id} severity={request.severity}")
 
-    dispatched_list: List[ChannelDispatchStatus] = []
+    dispatched_list: list[ChannelDispatchStatus] = []
 
     for ch in request.channels:
         ch_upper = ch.upper()

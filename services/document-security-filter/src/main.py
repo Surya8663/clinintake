@@ -1,11 +1,12 @@
 import io
+
+from fastapi import FastAPI, File, UploadFile
 import filetype
-from fastapi import FastAPI, UploadFile, File
 from pypdf import PdfReader
 
+from src.clamav import ClamAVScanner
 from src.config import settings
 from src.logger import logger
-from src.clamav import ClamAVScanner
 from src.prompt_injection import PromptInjectionDetector
 
 app = FastAPI(
@@ -76,7 +77,7 @@ async def scan_document(file: UploadFile = File(...)):
         )
         return {
             "is_safe": False,
-            "reason": f"Failed to extract document contents: {str(e)}"
+            "reason": f"Failed to extract document contents: {e!s}"
         }
 
     logger.info(f"Document {file.filename} passed all Clinical DMZ scanning stages successfully.")

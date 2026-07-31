@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class AppSettings(BaseSettings):
     service_name: str = Field(default="base-service")

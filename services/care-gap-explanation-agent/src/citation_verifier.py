@@ -8,7 +8,7 @@ A bounded retry is triggered with a constrained prompt.
 After max retries, a safe UNSUPPORTED_CITATION error is raised, never a fabricated clinical statement.
 """
 import logging
-from typing import Optional
+
 from src.models import GuidelinePassage
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def verify_citations_with_retry(
             ]
             return verify_citations_with_retry(safe_citations, allowed_passages, attempt + 1)
         else:
-            logger.error(
+            logger.exception(
                 f"CitationVerifier EXHAUSTED {MAX_CITATION_RETRIES} retries. "
                 f"Failing safely with UnsupportedCitationError. "
                 f"No fabricated clinical statement will be emitted."

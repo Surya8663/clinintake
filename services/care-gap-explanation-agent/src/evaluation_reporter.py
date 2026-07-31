@@ -4,10 +4,9 @@ Computes field-level extraction metrics, guideline retrieval quality,
 care-gap accuracy, safety metrics, and workflow success rates.
 Never manufactures a score when the underlying test did not run.
 """
-import json
 import datetime
+import json
 from pathlib import Path
-from typing import Optional
 
 
 def compute_metrics(results: list[dict]) -> dict:
@@ -54,7 +53,7 @@ def compute_metrics(results: list[dict]) -> dict:
     avg_latency = sum(latencies) / len(latencies) if latencies else None
 
     return {
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
         "total_cases": len(results),
         "passed": len(passed),
         "failed": len(failed),
@@ -83,15 +82,15 @@ def write_human_report(metrics: dict, output_path: str = "evaluation_report.md")
     lines = [
         "# ClinIntake Evaluation Report",
         f"\n**Generated:** {metrics.get('generated_at', 'N/A')}",
-        f"\n## Summary",
+        "\n## Summary",
         f"- Total Cases: {metrics['total_cases']}",
         f"- Passed: {metrics['passed']}",
         f"- Failed: {metrics['failed']}",
         f"- Not Run: {metrics['not_run']}",
         f"- Overall Success Rate: {metrics['overall_success_rate']:.1%}" if metrics['overall_success_rate'] else "- Overall Success Rate: N/A (no cases run)",
-        f"\n## Computed Metrics",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "\n## Computed Metrics",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Extraction Precision | {metrics.get('extraction_precision') or 'N/A'} |",
         f"| Extraction Recall | {metrics.get('extraction_recall') or 'N/A'} |",
         f"| Care-Gap Precision | {metrics.get('care_gap_precision') or 'N/A'} |",

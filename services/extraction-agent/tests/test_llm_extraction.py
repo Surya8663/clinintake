@@ -6,8 +6,10 @@ and asserts the output has the correct shape (value, quote, confidence all prese
 Requires OPENAI_API_KEY environment variable to be set.
 """
 import os
+
 import pytest
-from src.extractor import perform_quote_grounded_extraction, create_grounded_field
+
+from src.extractor import create_grounded_field, perform_quote_grounded_extraction
 from src.llm_client import call_llm_extraction
 
 SAMPLE_CLINICAL_TEXT = (
@@ -50,8 +52,8 @@ def test_real_llm_extraction_output_shape():
 
     # --- Patient ID field shape ---
     pat = result["patient_id"]
-    assert "value" in pat and pat["value"], "patient_id.value missing or empty"
-    assert "literal_quote" in pat and pat["literal_quote"], "patient_id.literal_quote missing or empty"
+    assert pat.get("value"), "patient_id.value missing or empty"
+    assert pat.get("literal_quote"), "patient_id.literal_quote missing or empty"
     assert "confidence" in pat, "patient_id.confidence missing"
     assert 0.0 <= float(pat["confidence"]) <= 1.0, f"patient_id.confidence out of range: {pat['confidence']}"
     assert pat["literal_quote"] in SAMPLE_CLINICAL_TEXT, (

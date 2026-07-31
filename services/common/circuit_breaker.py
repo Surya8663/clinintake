@@ -4,17 +4,19 @@ Uses exponential backoff with jitter and raises typed errors on failure.
 Never catches broad exceptions and continues as success.
 """
 import asyncio
-import time
-import random
+from collections.abc import Callable
+from enum import StrEnum
 import logging
-from typing import Callable, Any, Optional
-from enum import Enum
+import random
+import time
+from typing import Any
+
 import httpx
 
 logger = logging.getLogger(__name__)
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED = "closed"       # Normal operation
     OPEN = "open"           # Failing - reject calls fast
     HALF_OPEN = "half_open" # Probing recovery
@@ -46,7 +48,7 @@ class CircuitBreaker:
 
         self._state = CircuitState.CLOSED
         self._failure_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._half_open_call_count = 0
 
     @property
@@ -99,7 +101,7 @@ async def http_call_with_retry(
     max_attempts: int = 3,
     base_delay_s: float = 1.0,
     timeout_s: float = 30.0,
-    circuit_breaker: Optional[CircuitBreaker] = None,
+    circuit_breaker: CircuitBreaker | None = None,
     **kwargs,
 ) -> httpx.Response:
     """
@@ -107,7 +109,7 @@ async def http_call_with_retry(
     with jitter, timeout, and optional circuit breaker integration.
     Never catches exceptions silently.
     """
-    last_exc: Optional[Exception] = None
+    last_exc: Exception | None = None
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -131,7 +133,7 @@ async def http_call_with_retry(
                 )
                 await asyncio.sleep(delay)
             else:
-                logger.error(f"HTTP call to {url} exhausted all {max_attempts} retry attempts.")
+                logger.exception(f"HTTP call to {url} exhausted all {max_attempts} retry attempts.")
                 raise
 
         except CircuitBreakerOpen:

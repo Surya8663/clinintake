@@ -1,18 +1,20 @@
-import uuid
-import json
 from contextlib import asynccontextmanager
-from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException, Query, status, Depends
+import json
+from typing import Any
+import uuid
+
+from fastapi import Depends, FastAPI, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from services.common.jwt_verifier import require_roles, get_current_user_claims
+from services.common.jwt_verifier import require_roles
 from services.common.security_headers import SecurityHeadersMiddleware
+from src.audit_signer import compute_entry_hash, verify_entry_hmac
 from src.config import settings
 from src.logger import logger
-from src.models import AuditEventCreate, AuditRecordResponse, AuditQueryResponse, IntegrityVerifyResponse
-from src.vault_db import init_db, engine, insert_audit_event, AuditVaultRecord
-from src.audit_signer import compute_entry_hash, verify_entry_hmac
-from sqlalchemy.ext.asyncio import AsyncSession
+from src.models import AuditEventCreate, AuditQueryResponse, AuditRecordResponse, IntegrityVerifyResponse
+from src.vault_db import AuditVaultRecord, engine, init_db, insert_audit_event
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,7 +41,7 @@ async def health_check():
 @app.post("/audit/events", response_model=AuditRecordResponse)
 async def create_audit_event(
     event: AuditEventCreate,
-    claims: Dict[str, Any] = Depends(require_roles(["service:internal", "compliance:audit:read", "clinician:approve", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["service:internal", "compliance:audit:read", "clinician:approve", "admin:system"]))
 ):
     """Directly records a signed, append-only audit event into Audit Vault."""
     event_id = event.event_id or str(uuid.uuid4())
@@ -69,11 +71,11 @@ async def create_audit_event(
 
 @app.get("/audit/events", response_model=AuditQueryResponse)
 async def query_audit_trail(
-    document_id: Optional[str] = Query(None, description="Filter by document ID"),
-    service_name: Optional[str] = Query(None, description="Filter by service name"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    document_id: str | None = Query(None, description="Filter by document ID"),
+    service_name: str | None = Query(None, description="Filter by service name"),
+    event_type: str | None = Query(None, description="Filter by event type"),
     limit: int = Query(50, ge=1, le=500),
-    claims: Dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
 ):
     """Exposes query API for Compliance Dashboard to retrieve signed audit logs, enforcing Keycloak OIDC roles."""
     await init_db()
@@ -112,7 +114,7 @@ async def query_audit_trail(
 
 @app.get("/audit/verify", response_model=IntegrityVerifyResponse)
 async def verify_audit_vault_integrity(
-    claims: Dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
 ):
     """Cryptographically verifies hash chain and HMAC signature integrity across all Audit Vault entries."""
     await init_db()

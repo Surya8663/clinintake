@@ -1,13 +1,13 @@
 import time
-import httpx
-import uuid
+
 from fastapi import FastAPI, HTTPException
+import httpx
 
 from src.config import settings
-from src.logger import logger
-from src.models import ExtractRequest, ExtractResponse
 from src.extractor import perform_quote_grounded_extraction
 from src.fhir_validator import build_and_validate_fhir_resources
+from src.logger import logger
+from src.models import ExtractRequest, ExtractResponse
 
 app = FastAPI(
     title=settings.service_name,

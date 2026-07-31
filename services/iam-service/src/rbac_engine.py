@@ -1,15 +1,15 @@
-import time
-import json
-import base64
-import hmac
 import hashlib
-from typing import Dict, Any, List, Tuple, Optional
+import hmac
+import json
+import time
+from typing import Any
+
+from services.common.jwt_verifier import _b64_encode, decode_and_verify_jwt
+from services.common.secrets_loader import get_secret
 from src.config import settings
 from src.logger import logger
-from services.common.jwt_verifier import decode_and_verify_jwt, _b64_encode, _b64_decode
-from services.common.secrets_loader import get_secret
 
-ROLE_SCOPES: Dict[str, List[str]] = {
+ROLE_SCOPES: dict[str, list[str]] = {
     "TREATING_CLINICIAN": ["clinician:review", "clinician:approve", "clinician:reject"],
     "SUPERVISING_CLINICIAN": ["clinician:review", "clinician:approve", "clinician:reject", "safety:resolve"],
     "COMPLIANCE_REVIEWER": ["compliance:audit:read"],
@@ -19,14 +19,14 @@ ROLE_SCOPES: Dict[str, List[str]] = {
 }
 
 # Role mapping for dev provisioning
-DEV_USER_ROLES: Dict[str, Tuple[str, str, List[str]]] = {
+DEV_USER_ROLES: dict[str, tuple[str, str, list[str]]] = {
     "dr_smith": ("ClinicianPass123!", "TREATING_CLINICIAN", ["clinician:review", "clinician:approve", "clinician:reject"]),
     "auditor_jane": ("AuditorPass123!", "COMPLIANCE_REVIEWER", ["compliance:audit:read"]),
     "quality_reviewer": ("QualityPass123!", "QUALITY_REVIEWER", ["quality:metrics:read"]),
     "admin_user": ("AdminPass123!", "ADMIN", ["admin:system", "clinician:review", "clinician:approve", "clinician:reject", "compliance:audit:read", "quality:metrics:read"])
 }
 
-def authenticate_user_oidc(username: str, password: str, mfa_code: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[List[str]], Optional[str]]:
+def authenticate_user_oidc(username: str, password: str, mfa_code: str | None = None) -> tuple[bool, str | None, list[str] | None, str | None]:
     """
     Authenticates user against Keycloak / OIDC identity realm.
     No plaintext passwords or fixed MFA secrets exist in runtime code.
@@ -47,7 +47,7 @@ def authenticate_user_oidc(username: str, password: str, mfa_code: Optional[str]
     return False, None, None, "Invalid credentials"
 
 
-def create_short_lived_jwt_access_token(username: str, role: str, scopes: List[str]) -> Tuple[str, int]:
+def create_short_lived_jwt_access_token(username: str, role: str, scopes: list[str]) -> tuple[str, int]:
     """Generates a short-lived OIDC-compliant JWT token with a 15-minute expiration window."""
     now = int(time.time())
     expires_in_sec = settings.access_token_expire_minutes * 60
@@ -84,7 +84,7 @@ def create_short_lived_jwt_access_token(username: str, role: str, scopes: List[s
     return token, expires_in_sec
 
 
-def create_m2m_service_token(client_id: str, client_secret: str) -> Tuple[str, int]:
+def create_m2m_service_token(client_id: str, client_secret: str) -> tuple[str, int]:
     """Generates a Machine-to-Machine service token for inter-service communication."""
     if client_secret != "sec_keycloak_m2m_secret_2026" and client_secret != settings.keycloak_client_secret:
         raise ValueError("Invalid M2M client credentials")
@@ -126,7 +126,7 @@ def create_m2m_service_token(client_id: str, client_secret: str) -> Tuple[str, i
     return token, expires_in_sec
 
 
-def verify_jwt_token_scopes(token: str, required_scope: Optional[str] = None, required_role: Optional[str] = None) -> Dict[str, Any]:
+def verify_jwt_token_scopes(token: str, required_scope: str | None = None, required_role: str | None = None) -> dict[str, Any]:
     """Verifies JWT token signature and checks role/scope requirements."""
     try:
         claims = decode_and_verify_jwt(token)

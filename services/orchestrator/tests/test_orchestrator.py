@@ -1,16 +1,21 @@
+import hashlib
+import hmac
+import json
 import os
-import time, json, hmac, hashlib
-import pytest
-from fastapi.testclient import TestClient
-from transitions import MachineError
+import time
 from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+import pytest
+from transitions import MachineError
 
 os.environ["JWT_SECRET_KEY"] = "test_orchestrator_jwt_secret_2026"
 
-from src.main import app
-from src.state_machine import DocumentWorkflow, transition_workflow
-from src.persistence import persistence
 from services.common.jwt_verifier import _b64_encode
+from src.main import app
+from src.persistence import persistence
+from src.state_machine import DocumentWorkflow, transition_workflow
+
 
 def get_auth_header():
     now = int(time.time())

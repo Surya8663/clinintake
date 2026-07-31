@@ -1,7 +1,10 @@
 import os
+
 from cryptography.fernet import Fernet
+
 from src.config import settings
 from src.logger import logger
+
 
 class EncryptedClinicalDocStore:
     def __init__(self, key: str = None, storage_dir: str = None):

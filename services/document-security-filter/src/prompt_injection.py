@@ -1,5 +1,7 @@
 import re
+
 from src.logger import logger
+
 
 class PromptInjectionDetector:
     PATTERNS = [

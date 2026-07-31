@@ -1,12 +1,13 @@
 import json
-from typing import Tuple, Optional, Dict, Any
+from typing import Any
+
 from src.config import settings
 from src.logger import logger
 
 # Local memory store fallback for test environments when Redis container is offline
-_LOCAL_IDEMPOTENCY_CACHE: Dict[str, Dict[str, Any]] = {}
+_LOCAL_IDEMPOTENCY_CACHE: dict[str, dict[str, Any]] = {}
 
-def check_and_set_idempotency_key(idempotency_key: str, response_data: Optional[Dict[str, Any]] = None) -> Tuple[bool, Optional[Dict[str, Any]]]:
+def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str, Any] | None = None) -> tuple[bool, dict[str, Any] | None]:
     """
     Redis-backed (with local cache fallback) idempotency key checker.
     Returns (is_duplicate: bool, previous_response: Optional[dict]).

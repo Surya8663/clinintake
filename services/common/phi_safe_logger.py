@@ -11,9 +11,9 @@ Usage:
     from services.common.phi_safe_logger import configure_phi_safe_logging
     configure_phi_safe_logging()
 """
-import logging
-import json
 import datetime
+import json
+import logging
 import re
 
 # Field names whose VALUES must never appear in logs
@@ -57,7 +57,7 @@ class PhiSafeJsonFormatter(logging.Formatter):
     """
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             "level": record.levelname,
             "name": record.name,
             "message": record.getMessage(),

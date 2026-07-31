@@ -1,17 +1,17 @@
-import uuid
-import datetime
-from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
-from typing import List, Optional
 from contextlib import asynccontextmanager
+import datetime
+
+from fastapi import Depends, FastAPI, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from src.config import settings
+from src.database import async_session, engine, get_db
 from src.logger import logger
-from src.database import get_db, engine, async_session
-from src.models import Base, Patient, QuarantineRecord
 from src.matcher import resolve_patient_identity
+from src.models import Base, Patient, QuarantineRecord
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

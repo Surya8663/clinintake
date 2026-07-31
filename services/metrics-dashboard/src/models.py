@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+
 class ExtractionAccuracyMetric(BaseModel):
     total_test_samples: int
     correct_fields: int

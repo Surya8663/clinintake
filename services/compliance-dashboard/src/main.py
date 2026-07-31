@@ -1,14 +1,14 @@
 import os
-from typing import Optional, Dict, Any
-from fastapi import FastAPI, Depends, Header
+from typing import Any
+
+from fastapi import Depends, FastAPI
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from services.common.jwt_verifier import require_roles, security_bearer
 from services.common.security_headers import SecurityHeadersMiddleware
-from src.config import settings
-from src.logger import logger
 from src.audit_client import fetch_audit_events_via_api, fetch_vault_integrity_via_api
+from src.config import settings
 
 app = FastAPI(
     title=settings.service_name,
@@ -28,11 +28,11 @@ async def health_check():
 
 @app.get("/compliance/audit-trail")
 async def get_compliance_audit_trail(
-    document_id: Optional[str] = None,
-    service_name: Optional[str] = None,
-    event_type: Optional[str] = None,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
-    claims: Dict[str, Any] = Depends(require_roles(["compliance:audit:read", "admin:system"]))
+    document_id: str | None = None,
+    service_name: str | None = None,
+    event_type: str | None = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_bearer),
+    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "admin:system"]))
 ):
     """
     Exposes audit log trail to compliance reviewers.
@@ -43,8 +43,8 @@ async def get_compliance_audit_trail(
 
 @app.get("/compliance/verify-vault")
 async def verify_compliance_vault(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
-    claims: Dict[str, Any] = Depends(require_roles(["compliance:audit:read", "admin:system"]))
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_bearer),
+    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "admin:system"]))
 ):
     """Exposes cryptographic hash chain & HMAC signature verification status."""
     token_str = credentials.credentials if credentials else None

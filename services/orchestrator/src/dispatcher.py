@@ -1,10 +1,13 @@
 import json
-import httpx
-from typing import Any, Dict
-from pydantic import BaseModel
+from typing import Any
+
 from aiokafka import AIOKafkaProducer
+import httpx
+from pydantic import BaseModel
+
 from src.config import settings
 from src.logger import logger
+
 
 class AuditEventBus:
     def __init__(self):
@@ -27,7 +30,7 @@ class AuditEventBus:
             )
             self.enabled = False
 
-    async def publish_event(self, event_type: str, document_id: str, payload: Dict[str, Any]) -> None:
+    async def publish_event(self, event_type: str, document_id: str, payload: dict[str, Any]) -> None:
         event = {
             "event_type": event_type,
             "document_id": document_id,
@@ -58,7 +61,7 @@ class AuditEventBus:
 
 audit_event_bus = AuditEventBus()
 
-async def dispatch_downstream_call(service_name: str, url: str, payload: BaseModel) -> Dict[str, Any]:
+async def dispatch_downstream_call(service_name: str, url: str, payload: BaseModel) -> dict[str, Any]:
     """
     Single-hub dispatch function.
     All downstream calls MUST pass through this dispatcher.

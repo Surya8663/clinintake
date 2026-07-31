@@ -6,15 +6,17 @@ Tests:
 Requires OPENAI_API_KEY or GOOGLE_API_KEY environment variable.
 """
 import os
-import pytest
 from unittest.mock import patch
-from src.models import ClinicalDecisionPackage
+
+import pytest
+
 from src.explanation_engine import (
-    generate_care_gap_explanation,
-    _verify_citations,
     _get_valid_citation_keys,
     _parse_deterministic_findings,
+    _verify_citations,
+    generate_care_gap_explanation,
 )
+from src.models import ClinicalDecisionPackage
 
 SAMPLE_PACKAGE = ClinicalDecisionPackage(
     document_id="DOC-LLM-TEST-001",

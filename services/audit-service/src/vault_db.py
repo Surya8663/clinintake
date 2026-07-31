@@ -1,20 +1,20 @@
-import json
 import datetime
-from typing import List, Optional, Dict, Any
-from sqlalchemy import Column, Integer, String, Text, DateTime, event
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.future import select
+import json
+from typing import Any
 
+from sqlalchemy import Column, Integer, String, Text, event
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.future import select
+from sqlalchemy.orm import declarative_base
+
+from src.audit_signer import compute_entry_hash, compute_hmac_signature
 from src.config import settings
-from src.audit_signer import compute_entry_hash, compute_hmac_signature, verify_entry_hmac
 from src.logger import logger
 
 Base = declarative_base()
 
 class AuditVaultImmutableError(Exception):
     """Raised when an UPDATE or DELETE operation is attempted on Audit Vault."""
-    pass
 
 class AuditVaultRecord(Base):
     __tablename__ = "audit_vault"
@@ -47,7 +47,7 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-async def insert_audit_event(session: AsyncSession, event_id: str, document_id: str, service_name: str, event_type: str, payload: Dict[str, Any], timestamp: Optional[str] = None) -> AuditVaultRecord:
+async def insert_audit_event(session: AsyncSession, event_id: str, document_id: str, service_name: str, event_type: str, payload: dict[str, Any], timestamp: str | None = None) -> AuditVaultRecord:
     """Computes hash-chaining and HMAC signature, then appends to Audit Vault."""
     await init_db()
     # Get last entry hash

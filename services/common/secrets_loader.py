@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-from typing import Optional
 
-def get_secret(name: str, default: Optional[str] = None) -> str:
+
+def get_secret(name: str, default: str | None = None) -> str:
     """
     Uniform secret loader across all ClinIntake services.
     

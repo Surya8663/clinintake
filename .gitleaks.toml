@@ -1,0 +1,43 @@
+# .gitleaks.toml — Gitleaks configuration for ClinIntake Suite
+#
+# This allowlist prevents false-positive secret detections for:
+# 1. Test fixture dummy keys (clearly not real credentials)
+# 2. Historical documentation of remediated hardcoded defaults
+#
+# All real secrets are loaded exclusively from environment variables
+# or GitHub Actions Secrets; no actual credentials exist in source code.
+
+title = "ClinIntake Gitleaks Config"
+
+[allowlist]
+  description = "Allowlist for test fixture dummy strings and remediation documentation"
+
+  # Allow test fixture secret assignments in test files.
+  # These are synthetic/dummy values used only to bootstrap FastAPI TestClient instances.
+  # Pattern: os.environ["KEY"] = "test_..._2026" in test files.
+  regexTarget = "line"
+  regexes = [
+    # audit-service test fixture dummy keys
+    '''test_audit_hmac_key_2026''',
+    '''test_audit_jwt_secret_2026''',
+    # clinical-workspace test fixture dummy keys
+    '''test_workspace_secret_key_2026''',
+    # iam-service / document-gateway test fixture dummy keys
+    '''test_iam_jwt_secret_2026''',
+    '''test_doc_gateway_jwt_secret_2026''',
+    '''test_doc_encryption_key_2026''',
+    '''test_fhir_client_secret_2026''',
+    # Generic test-only patterns
+    '''test[-_][a-z_]+[-_](secret|key|token|password)[-_]20\d{2}''',
+  ]
+
+  # Exclude documentation files that describe historical (now-remediated) defaults
+  # and test directories where fixture keys are expected.
+  paths = [
+    '''docs/remediation-baseline\.md''',
+    '''services/audit-service/tests/''',
+    '''services/clinical-workspace/tests/''',
+    '''services/iam-service/tests/''',
+    '''services/document-gateway/tests/''',
+    '''services/fhir-integration-service/tests/''',
+  ]

@@ -1,14 +1,15 @@
 import datetime
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException, Depends
+from typing import Any
 
-from services.common.jwt_verifier import require_m2m_service, require_roles
+from fastapi import Depends, FastAPI, HTTPException
+
+from services.common.jwt_verifier import require_m2m_service
 from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
+from src.fhir_bundle_writer import assemble_fhir_r4_transaction_bundle, execute_fhir_transaction
+from src.idempotency_store import check_and_set_idempotency_key
 from src.logger import logger
 from src.models import FHIRTransactionRequest, FHIRTransactionResponse
-from src.idempotency_store import check_and_set_idempotency_key
-from src.fhir_bundle_writer import assemble_fhir_r4_transaction_bundle, execute_fhir_transaction
 
 app = FastAPI(
     title=settings.service_name,
@@ -31,7 +32,7 @@ USED_JTI_CACHE = set()
 @app.post("/fhir/write-transaction", response_model=FHIRTransactionResponse)
 async def write_fhir_transaction(
     request: FHIRTransactionRequest,
-    claims: Dict[str, Any] = Depends(require_m2m_service)
+    claims: dict[str, Any] = Depends(require_m2m_service)
 ):
     """
     Sole component with EHR write credentials.

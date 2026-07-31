@@ -1,14 +1,14 @@
-from typing import List, Dict, Any
-from src.models import ReferralDraftRequest, ReferralDraftResponse, GroundedEvidenceItem
-from src.logger import logger
 from src.config import settings
+from src.logger import logger
+from src.models import GroundedEvidenceItem, ReferralDraftRequest, ReferralDraftResponse
+
 
 def _build_deterministic_letter(
     patient_id: str,
     specialty: str,
     urgency: str,
-    reasons: List[str],
-    evidence_items: List[GroundedEvidenceItem]
+    reasons: list[str],
+    evidence_items: list[GroundedEvidenceItem]
 ) -> str:
     """Fallback deterministic letter layout if LLM call is unavailable or fails."""
     reasons_formatted = "\n- ".join(reasons)
@@ -28,9 +28,9 @@ def _build_deterministic_letter(
         letter_text += f"- [{ev.section} / {ev.clause_id}]: \"{ev.source_quote}\"\n"
 
     letter_text += (
-        f"\nThank you for seeing this patient in consultation.\n\n"
-        f"Sincerely,\n"
-        f"Referring Clinician / ClinIntake System"
+        "\nThank you for seeing this patient in consultation.\n\n"
+        "Sincerely,\n"
+        "Referring Clinician / ClinIntake System"
     )
     return letter_text
 
@@ -49,7 +49,7 @@ def generate_referral_draft_letter(request: ReferralDraftRequest) -> ReferralDra
 
     urgency = "ROUTINE"
     reasons = []
-    evidence_items: List[GroundedEvidenceItem] = []
+    evidence_items: list[GroundedEvidenceItem] = []
 
     # 1. Deterministic urgency & reason classification (safety red flags)
     safety = pkg.get("safety_assessment", {})

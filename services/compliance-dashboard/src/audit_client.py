@@ -1,14 +1,17 @@
+from typing import Any
+
 import httpx
-from typing import Dict, Any, Optional
+
 from src.config import settings
 from src.logger import logger
 
+
 async def fetch_audit_events_via_api(
-    document_id: Optional[str] = None,
-    service_name: Optional[str] = None,
-    event_type: Optional[str] = None,
-    auth_token: Optional[str] = None
-) -> Dict[str, Any]:
+    document_id: str | None = None,
+    service_name: str | None = None,
+    event_type: str | None = None,
+    auth_token: str | None = None
+) -> dict[str, Any]:
     """
     Fetches audit trail logs EXCLUSIVELY via audit-service REST API endpoint GET /audit/events.
     Forwards verified Bearer auth token for authorization.
@@ -50,7 +53,7 @@ async def fetch_audit_events_via_api(
             "status": "error"
         }
 
-async def fetch_vault_integrity_via_api(auth_token: Optional[str] = None) -> Dict[str, Any]:
+async def fetch_vault_integrity_via_api(auth_token: str | None = None) -> dict[str, Any]:
     """Fetches cryptographic vault integrity verification via audit-service REST API GET /audit/verify."""
     url = f"{settings.audit_service_url}/audit/verify"
     headers = {}

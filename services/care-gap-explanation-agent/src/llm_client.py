@@ -1,6 +1,8 @@
 import json
+from typing import Any
+
 import httpx
-from typing import List, Dict, Any
+
 from src.config import settings
 from src.logger import logger
 
@@ -34,14 +36,14 @@ Return ONLY the JSON object. No markdown, no commentary."""
 
 
 def call_llm_explanation(
-    care_gaps_found: List[str],
-    guideline_passages: List[Dict[str, Any]],
-    safety_assessment: Dict[str, Any],
-    drug_interactions: List[Dict[str, Any]],
+    care_gaps_found: list[str],
+    guideline_passages: list[dict[str, Any]],
+    safety_assessment: dict[str, Any],
+    drug_interactions: list[dict[str, Any]],
     document_id: str,
     patient_id: str = None,
     correction_instruction: str = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Calls the Lyzr Care Gap Explanation Agent (agent_exp_caregap_v3) with Responsible AI governance.
     """

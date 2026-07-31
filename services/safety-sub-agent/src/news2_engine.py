@@ -1,8 +1,9 @@
-from typing import Tuple, Optional
-from src.models import VitalsMeasurement
-from src.logger import logger
 
-def calculate_news2_points(vitals: Optional[VitalsMeasurement]) -> Tuple[Optional[int], Optional[int], str, str]:
+from src.logger import logger
+from src.models import VitalsMeasurement
+
+
+def calculate_news2_points(vitals: VitalsMeasurement | None) -> tuple[int | None, int | None, str, str]:
     """
     Calculates NEWS2 and qSOFA scores.
     Enforces pessimistic safety requirement: If required vitals are missing, returns

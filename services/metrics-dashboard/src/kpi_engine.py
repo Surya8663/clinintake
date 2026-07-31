@@ -1,9 +1,7 @@
 import datetime
-from src.models import (
-    ExtractionAccuracyMetric, RedFlagSensitivityMetric,
-    HallucinationRateMetric, KPISummaryResponse
-)
+
 from src.logger import logger
+from src.models import ExtractionAccuracyMetric, HallucinationRateMetric, KPISummaryResponse, RedFlagSensitivityMetric
 
 # Real labeled ground-truth evaluation datasets
 LABELED_EXTRACTION_TEST_SET = [

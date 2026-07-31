@@ -1,11 +1,12 @@
-import uuid
 import io
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import uuid
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
 
 from src.config import settings
 from src.logger import logger
-from src.models import OCRResponse, OCRPage
+from src.models import OCRResponse
 from src.ocr_engine import process_image_with_tesseract, process_pdf_with_pypdf
 
 app = FastAPI(
@@ -40,7 +41,7 @@ async def process_document(file: UploadFile = File(...)):
             pages.append(page)
         except Exception as e:
             logger.error(f"Failed to open image for OCR: {e}")
-            raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {e!s}")
 
     full_text = "\n\n".join([p.text for p in pages])
     

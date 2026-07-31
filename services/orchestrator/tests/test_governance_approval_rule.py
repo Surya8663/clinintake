@@ -1,5 +1,7 @@
 import pytest
-from src.state_machine import DocumentWorkflow, transition_workflow, UnapprovedEHRWriteError
+
+from src.state_machine import DocumentWorkflow, UnapprovedEHRWriteError, transition_workflow
+
 
 def test_governance_rule_blocks_unapproved_ehr_write():
     """

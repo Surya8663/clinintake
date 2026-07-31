@@ -1,16 +1,11 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
 
-from src.models import (
-    GroundedField,
-    GroundedDiagnosis,
-    GroundedMedication,
-    GroundedLabResult,
-    ExtractionData
-)
 from src.config import settings
 from src.logger import logger
+from src.models import ExtractionData, GroundedDiagnosis, GroundedField, GroundedLabResult, GroundedMedication
 
-def locate_bbox_for_quote(quote: str, ocr_words: Optional[List[Dict[str, Any]]]) -> List[int]:
+
+def locate_bbox_for_quote(quote: str, ocr_words: list[dict[str, Any]] | None) -> list[int]:
     """Finds exact spatial bounding box [x_min, y_min, x_max, y_max] matching the literal source quote."""
     if not ocr_words or not quote:
         return [0, 0, 100, 20]
@@ -42,8 +37,8 @@ def create_grounded_field(
     raw_value: str,
     literal_quote: str,
     confidence: float,
-    ocr_words: Optional[List[Dict[str, Any]]] = None,
-    custom_threshold: Optional[float] = None
+    ocr_words: list[dict[str, Any]] | None = None,
+    custom_threshold: float | None = None
 ) -> GroundedField:
     """Creates a grounded field. If confidence is below threshold, value MUST be 'Incomplete'."""
     threshold = custom_threshold if custom_threshold is not None else settings.confidence_threshold
@@ -64,8 +59,8 @@ def create_grounded_field(
 
 def perform_quote_grounded_extraction(
     ocr_text: str,
-    ocr_words: Optional[List[Dict[str, Any]]] = None,
-    threshold_override: Optional[float] = None
+    ocr_words: list[dict[str, Any]] | None = None,
+    threshold_override: float | None = None
 ) -> ExtractionData:
     """Extracts clinical entities using LLM-based structured extraction with quote grounding."""
     from src.llm_client import call_llm_extraction
@@ -97,7 +92,7 @@ def perform_quote_grounded_extraction(
     )
 
     # 2. Diagnoses
-    diagnoses: List[GroundedDiagnosis] = []
+    diagnoses: list[GroundedDiagnosis] = []
     for diag_data in llm_result.get("diagnoses", []):
         name_d = diag_data.get("name", {})
         icd_d = diag_data.get("icd10_code", {})
@@ -118,7 +113,7 @@ def perform_quote_grounded_extraction(
         diagnoses.append(GroundedDiagnosis(name=name_field, icd10_code=icd_field))
 
     # 3. Medications
-    medications: List[GroundedMedication] = []
+    medications: list[GroundedMedication] = []
     for med_data in llm_result.get("medications", []):
         name_m = med_data.get("name", {})
         rx_m = med_data.get("rxnorm_code", {})
@@ -147,7 +142,7 @@ def perform_quote_grounded_extraction(
         medications.append(GroundedMedication(name=name_field, rxnorm_code=rx_field, dosage=dosage_field))
 
     # 4. Lab Results
-    labs: List[GroundedLabResult] = []
+    labs: list[GroundedLabResult] = []
     for lab_data in llm_result.get("labs", []):
         name_l = lab_data.get("name", {})
         loinc_l = lab_data.get("loinc_code", {})

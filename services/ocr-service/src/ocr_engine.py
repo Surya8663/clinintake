@@ -1,13 +1,12 @@
-import os
 import io
-from typing import List, Tuple
-from PIL import Image
-import pytesseract
-import pypdf
 
-from src.models import BoundingBox, OCRWord, OCRLine, OCRPage, OCRResponse
-from src.logger import logger
+from PIL import Image
+import pypdf
+import pytesseract
+
 from src.config import settings
+from src.logger import logger
+from src.models import BoundingBox, OCRLine, OCRPage, OCRWord
 
 if settings.tesseract_cmd != "tesseract":
     pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
@@ -17,7 +16,7 @@ def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPag
     width, height = image.size
     try:
         data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
-        words: List[OCRWord] = []
+        words: list[OCRWord] = []
         lines_dict = {}
 
         n_boxes = len(data['text'])
@@ -49,7 +48,7 @@ def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPag
                     lines_dict[line_num] = []
                 lines_dict[line_num].append(ocr_word)
 
-        lines: List[OCRLine] = []
+        lines: list[OCRLine] = []
         for line_num, line_words in lines_dict.items():
             line_text = " ".join([w.text for w in line_words])
             min_x = min(w.bbox.x_min for w in line_words)
@@ -88,21 +87,21 @@ def process_spatial_layout_fallback(image: Image.Image, page_number: int) -> OCR
         lines=[]
     )
 
-def process_pdf_with_pypdf(file_bytes: bytes) -> List[OCRPage]:
+def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
     """Processes PDF document using pypdf extraction with spatial coordinate calculation."""
     reader = pypdf.PdfReader(io.BytesIO(file_bytes))
-    pages: List[OCRPage] = []
+    pages: list[OCRPage] = []
     
     for page_idx, page in enumerate(reader.pages):
         page_number = page_idx + 1
         page_text = page.extract_text() or ""
         
-        words: List[OCRWord] = []
-        lines: List[OCRLine] = []
+        words: list[OCRWord] = []
+        lines: list[OCRLine] = []
         
         raw_lines = [l for l in page_text.split('\n') if l.strip()]
         curr_y = 50
-        for l_idx, line_str in enumerate(raw_lines):
+        for _l_idx, line_str in enumerate(raw_lines):
             tokens = line_str.split()
             if not tokens:
                 continue

@@ -1,11 +1,13 @@
 import datetime
-from typing import List, Tuple, Optional
+
 from rapidfuzz.distance import JaroWinkler
+
 from src.config import settings
 from src.logger import logger
 from src.models import Patient
 
-def parse_dob(dob_str: str) -> Optional[datetime.date]:
+
+def parse_dob(dob_str: str) -> datetime.date | None:
     if not dob_str:
         return None
     
@@ -22,9 +24,9 @@ def parse_dob(dob_str: str) -> Optional[datetime.date]:
 def compute_match_score(
     first_name_in: str, 
     last_name_in: str, 
-    dob_in: Optional[datetime.date],
+    dob_in: datetime.date | None,
     patient: Patient
-) -> Tuple[float, dict]:
+) -> tuple[float, dict]:
     """
     Computes name similarity and DOB match to derive a confidence score.
     """
@@ -54,8 +56,8 @@ def resolve_patient_identity(
     first_name: str, 
     last_name: str, 
     dob_str: str, 
-    patients: List[Patient]
-) -> Tuple[Optional[Patient], float, List[dict]]:
+    patients: list[Patient]
+) -> tuple[Patient | None, float, list[dict]]:
     """
     Evaluates patient demographics against list of database patients.
     Returns (matched_patient, highest_score, candidate_logs).

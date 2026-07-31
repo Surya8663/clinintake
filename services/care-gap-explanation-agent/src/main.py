@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
 from src.config import settings
-from src.logger import logger
-from src.models import ClinicalDecisionPackage, CareGapExplanationResponse
 from src.explanation_engine import generate_care_gap_explanation
+from src.logger import logger
+from src.models import CareGapExplanationResponse, ClinicalDecisionPackage
 
 app = FastAPI(
     title=settings.service_name,

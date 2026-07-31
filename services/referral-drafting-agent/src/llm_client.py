@@ -1,6 +1,8 @@
 import json
+from typing import Any
+
 import httpx
-from typing import List, Dict, Any
+
 from src.config import settings
 from src.logger import logger
 
@@ -27,8 +29,8 @@ def call_llm_referral_draft(
     patient_id: str,
     target_specialty: str,
     urgency_level: str,
-    clinical_reasons: List[str],
-    evidence_items: List[Dict[str, Any]],
+    clinical_reasons: list[str],
+    evidence_items: list[dict[str, Any]],
     document_id: str
 ) -> str:
     """

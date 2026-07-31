@@ -1,7 +1,7 @@
 import re
-from typing import List, Tuple
-from src.models import PHIScrubRequest, PHIScrubResponse
+
 from src.logger import logger
+from src.models import PHIScrubRequest, PHIScrubResponse
 
 # Regex patterns for clinical PHI entity detection
 PHI_PATTERNS = [

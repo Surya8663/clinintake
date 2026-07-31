@@ -1,5 +1,6 @@
 import time
-from fastapi import FastAPI, HTTPException
+
+from fastapi import FastAPI
 
 from src.config import settings
 from src.logger import logger

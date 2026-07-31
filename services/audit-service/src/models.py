@@ -1,13 +1,15 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+
 
 class AuditEventCreate(BaseModel):
-    event_id: Optional[str] = None
+    event_id: str | None = None
     document_id: str
     service_name: str
     event_type: str = Field(..., description="E.g., 'DOCUMENT_INGESTED', 'PII_REDACTED', 'SAFETY_INTERRUPT_TRIGGERED'")
-    payload: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: Optional[str] = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    timestamp: str | None = None
 
 class AuditRecordResponse(BaseModel):
     id: int
@@ -15,7 +17,7 @@ class AuditRecordResponse(BaseModel):
     document_id: str
     service_name: str
     event_type: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     prev_hash: str
     entry_hash: str
     hmac_signature: str
@@ -23,10 +25,10 @@ class AuditRecordResponse(BaseModel):
 
 class AuditQueryResponse(BaseModel):
     total_records: int
-    records: List[AuditRecordResponse]
+    records: list[AuditRecordResponse]
 
 class IntegrityVerifyResponse(BaseModel):
     status: str = Field(..., description="'intact' or 'compromised'")
     total_verified: int
-    failed_entry_id: Optional[int] = None
+    failed_entry_id: int | None = None
     details: str

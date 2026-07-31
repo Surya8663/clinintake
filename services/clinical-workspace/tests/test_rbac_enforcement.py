@@ -1,11 +1,15 @@
+import hashlib
+import hmac
+import json
 import os
-import time, json, hmac, hashlib
+import time
+
 from fastapi.testclient import TestClient
 
 os.environ["JWT_SECRET_KEY"] = "test_workspace_secret_key_2026"
 
-from src.main import app
 from services.common.jwt_verifier import _b64_encode
+from src.main import app
 
 client = TestClient(app)
 

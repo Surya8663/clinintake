@@ -1,31 +1,34 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
-from typing import Dict, Any, Optional
-from pydantic import BaseModel
 from contextlib import asynccontextmanager
+from typing import Any
 
-from services.common.jwt_verifier import get_current_user_claims, require_roles, require_m2m_service
-from services.common.security_headers import SecurityHeadersMiddleware
-from src.config import settings
-from src.logger import logger
-from src.state_machine import DocumentWorkflow, transition_workflow
-from src.persistence import persistence
-from src.dispatcher import audit_event_bus, dispatch_downstream_call
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from packages.clinical_contracts import (
-    ClinicalWorkflowContext, ApiErrorEnvelope,
-    FilterScanRequest, FilterScanResponse,
-    ExtractRequest, ExtractResponse,
-    SchemaValidateRequest, SchemaValidateResponse,
-    CqlEvaluateRequest, CqlEvaluateResponse,
-    TemporalEvaluateRequest, TemporalEvaluateResponse,
-    InteractionsCheckRequest, InteractionsCheckResponse,
-    GuidelineRetrieveRequest, GuidelineRetrieveResponse,
-    CareGapExplainRequest, CareGapExplainResponse,
-    ReferralDraftRequest, ReferralDraftResponse,
-    GuardrailVerifyRequest, GuardrailVerifyResponse,
-    FhirWriteTransactionRequest, FhirWriteTransactionResponse
+    ApiErrorEnvelope,
+    CareGapExplainRequest,
+    CareGapExplainResponse,
+    CqlEvaluateRequest,
+    ExtractRequest,
+    ExtractResponse,
+    FhirWriteTransactionRequest,
+    FhirWriteTransactionResponse,
+    FilterScanRequest,
+    FilterScanResponse,
+    InteractionsCheckRequest,
+    SchemaValidateRequest,
+    SchemaValidateResponse,
+    TemporalEvaluateRequest,
 )
+from services.common.jwt_verifier import get_current_user_claims
+from services.common.security_headers import SecurityHeadersMiddleware
+from src.config import settings
+from src.dispatcher import audit_event_bus, dispatch_downstream_call
+from src.logger import logger
+from src.persistence import persistence
+from src.state_machine import DocumentWorkflow, transition_workflow
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,7 +54,7 @@ class CreateDocumentRequest(BaseModel):
 
 class TransitionRequest(BaseModel):
     trigger: str
-    context: Optional[Dict[str, Any]] = None
+    context: dict[str, Any] | None = None
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -74,7 +77,7 @@ async def health_check():
 @app.post("/orchestrator/documents")
 async def create_document(
     req: CreateDocumentRequest,
-    claims: Dict[str, Any] = Depends(get_current_user_claims)
+    claims: dict[str, Any] = Depends(get_current_user_claims)
 ):
     existing = await persistence.get_workflow(req.document_id)
     if existing:
@@ -98,7 +101,7 @@ async def create_document(
 @app.get("/orchestrator/documents/{document_id}")
 async def get_document(
     document_id: str,
-    claims: Dict[str, Any] = Depends(get_current_user_claims)
+    claims: dict[str, Any] = Depends(get_current_user_claims)
 ):
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
@@ -109,7 +112,7 @@ async def get_document(
 async def transition_document(
     document_id: str,
     req: TransitionRequest,
-    claims: Dict[str, Any] = Depends(get_current_user_claims)
+    claims: dict[str, Any] = Depends(get_current_user_claims)
 ):
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
@@ -132,7 +135,7 @@ async def transition_document(
         
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
-from src.lyzr_client import lyzr_client, LyzrApiError, LyzrGovernanceViolationError
+from src.lyzr_client import LyzrApiError, LyzrGovernanceViolationError, lyzr_client
 
 PROCESSED_CALLBACK_SIGNATURES: set = set()
 
@@ -165,7 +168,7 @@ async def lyzr_webhook_callback(request: Request):
 @app.post("/orchestrator/documents/{document_id}/execute-step")
 async def execute_step(
     document_id: str,
-    claims: Dict[str, Any] = Depends(get_current_user_claims)
+    claims: dict[str, Any] = Depends(get_current_user_claims)
 ):
     """
     Authoritative workflow step runner. Starts or resumes Lyzr SuperFlow DAG execution
@@ -223,7 +226,7 @@ async def execute_step(
                 workflow = transition_workflow(workflow, "sanitize_fail")
         except Exception as e:
             logger.error(f"Downstream sanitization failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream security filter error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Downstream security filter error: {e!s}")
 
     # 2. State: extracting -> Dispatch to /extract
     elif current_state == "extracting":
@@ -249,7 +252,7 @@ async def execute_step(
         except Exception as e:
             workflow = transition_workflow(workflow, "extraction_fail")
             logger.error(f"Downstream extraction failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream extraction service error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Downstream extraction service error: {e!s}")
 
     # 3. State: validating -> Dispatch to /validate/schema
     elif current_state == "validating":
@@ -277,7 +280,7 @@ async def execute_step(
                 workflow = transition_workflow(workflow, "validation_fail")
         except Exception as e:
             logger.error(f"Downstream schema validation failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream validation service error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Downstream validation service error: {e!s}")
 
     # 4. State: reasoning -> Orchestrate care gaps pipeline (CQL -> Temporal -> Interactions -> Guideline -> Explanation -> Draft -> Guardrail)
     elif current_state == "reasoning":
@@ -324,7 +327,7 @@ async def execute_step(
         except Exception as e:
             workflow = transition_workflow(workflow, "reasoning_fail")
             logger.error(f"Downstream reasoning pipeline failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream reasoning pipeline error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Downstream reasoning pipeline error: {e!s}")
 
     # 5. State: writing_ehr -> Dispatch to /fhir/write-transaction
     elif current_state == "writing_ehr":
@@ -352,7 +355,7 @@ async def execute_step(
         except Exception as e:
             workflow = transition_workflow(workflow, "write_ehr_fail")
             logger.error(f"Downstream EHR Write failed: {e}")
-            raise HTTPException(status_code=502, detail=f"Downstream EHR write service error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Downstream EHR write service error: {e!s}")
 
     else:
         raise HTTPException(

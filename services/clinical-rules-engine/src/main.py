@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
 from src.config import settings
+from src.cql_evaluator import evaluate_cql_rules
 from src.logger import logger
 from src.models import CQLEvaluateRequest, CQLEvaluateResponse
-from src.cql_evaluator import evaluate_cql_rules
 
 app = FastAPI(
     title=settings.service_name,

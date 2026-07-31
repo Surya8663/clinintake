@@ -3,12 +3,11 @@ ClinIntake Phase 12: Graceful shutdown, connection pooling, and startup dependen
 Provides a reusable ApplicationLifecycle context manager for all FastAPI services.
 """
 import asyncio
+from contextlib import asynccontextmanager
 import logging
 import os
-import signal
 import sys
-from contextlib import asynccontextmanager
-from typing import Optional, Any
+from typing import Any
 
 import httpx
 
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 class StartupDependencyError(RuntimeError):
     """Raised when a required external dependency is not reachable at startup."""
-    pass
 
 
 async def _check_http_dependency(url: str, service_label: str, timeout_s: float = 5.0) -> None:

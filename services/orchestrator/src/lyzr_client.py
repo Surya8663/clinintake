@@ -1,23 +1,22 @@
-import hmac
 import hashlib
-import time
+import hmac
+from typing import Any
 import uuid
+
 import httpx
-from typing import Dict, Any, Optional
+
 from src.config import settings
 from src.logger import logger
 
+
 class LyzrApiError(Exception):
     """Raised when Lyzr API requests fail or credentials are invalid."""
-    pass
 
 class LyzrGovernanceViolationError(Exception):
     """Raised when a Lyzr Responsible AI policy (prompt injection, grounding) is violated."""
-    pass
 
 class LyzrExecutionTimeoutError(Exception):
     """Raised when a SuperFlow execution times out."""
-    pass
 
 
 class LyzrSuperFlowClient:
@@ -27,7 +26,7 @@ class LyzrSuperFlowClient:
         self.superflow_id = settings.lyzr_superflow_id
         self.webhook_secret = settings.lyzr_webhook_secret
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         if not self.api_key or self.api_key == "MISSING":
             raise LyzrApiError("LYZR_API_KEY mandatory configuration missing or invalid. Execution rejected.")
         return {
@@ -39,8 +38,8 @@ class LyzrSuperFlowClient:
         self,
         workflow_id: str,
         document_id: str,
-        input_payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        input_payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Initiates a Lyzr SuperFlow DAG execution for the clinical workflow.
         Returns execution_id, session_id, trace_id, and node statuses.
@@ -114,8 +113,8 @@ class LyzrSuperFlowClient:
     def execute_agent(
         self,
         agent_id: str,
-        input_payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        input_payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Executes a specialized Lyzr Agent with Responsible AI policy validation.
         """

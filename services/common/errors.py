@@ -3,11 +3,10 @@ Structured error types for the ClinIntake platform.
 Every service must raise typed errors that are mapped to HTTP status codes
 and audit event payloads. Never catch broad exceptions and continue as success.
 """
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     # Authentication & Authorization
     UNAUTHORIZED = "UNAUTHORIZED"
     FORBIDDEN = "FORBIDDEN"
@@ -53,8 +52,8 @@ class ClinIntakeError(Exception):
         self,
         code: ErrorCode,
         message: str,
-        document_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        document_id: str | None = None,
+        trace_id: str | None = None,
     ):
         self.code = code
         self.message = message

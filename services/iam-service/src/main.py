@@ -1,9 +1,15 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
+
 from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
 from src.logger import logger
-from src.models import LoginRequest, TokenResponse, VerifyTokenRequest, VerifyTokenResponse, M2MTokenRequest
-from src.rbac_engine import authenticate_user_oidc, create_short_lived_jwt_access_token, create_m2m_service_token, verify_jwt_token_scopes
+from src.models import LoginRequest, M2MTokenRequest, TokenResponse, VerifyTokenRequest, VerifyTokenResponse
+from src.rbac_engine import (
+    authenticate_user_oidc,
+    create_m2m_service_token,
+    create_short_lived_jwt_access_token,
+    verify_jwt_token_scopes,
+)
 
 app = FastAPI(
     title=settings.service_name,

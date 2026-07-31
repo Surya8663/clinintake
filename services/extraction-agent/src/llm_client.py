@@ -1,5 +1,6 @@
 import json
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from src.config import settings
 from src.logger import logger
 
@@ -37,7 +38,7 @@ Rules:
 - Return ONLY the JSON object. No markdown, no commentary."""
 
 
-def _build_user_prompt(ocr_text: str, ocr_words: Optional[List[Dict[str, Any]]] = None) -> str:
+def _build_user_prompt(ocr_text: str, ocr_words: list[dict[str, Any]] | None = None) -> str:
     """Constructs the user prompt with OCR text and optional word-level bounding box context."""
     prompt = f"Extract all clinical entities from this OCR text:\n\n---\n{ocr_text}\n---"
     if ocr_words:
@@ -52,10 +53,11 @@ def _build_user_prompt(ocr_text: str, ocr_words: Optional[List[Dict[str, Any]]] 
 
 import httpx
 
+
 def call_llm_extraction(
     ocr_text: str,
-    ocr_words: Optional[List[Dict[str, Any]]] = None
-) -> Dict[str, Any]:
+    ocr_words: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """
     Calls the configured Lyzr Extraction Agent (agent_ext_clin_v3) with Responsible AI governance.
     Enforces prompt injection checks and re-validates returned JSON output.
@@ -66,7 +68,7 @@ def call_llm_extraction(
         raise RuntimeError("LYZR_POLICY_VIOLATION: Prompt injection detected by Lyzr Policy.")
 
     user_prompt = _build_user_prompt(ocr_text, ocr_words)
-    logger.info(f"Calling Lyzr Extraction Agent for clinical extraction...")
+    logger.info("Calling Lyzr Extraction Agent for clinical extraction...")
 
     # Lyzr Agent API Execution Call
     lyzr_api_key = getattr(settings, "lyzr_api_key", getattr(settings, "llm_api_key", None))

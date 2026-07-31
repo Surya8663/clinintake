@@ -2,12 +2,13 @@
 PHI-safe logger unit tests.
 Verifies that patient data field values are redacted from all log records.
 """
+from io import StringIO
 import json
 import logging
-import pytest
-import sys
-from io import StringIO
 from pathlib import Path
+import sys
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from services.common.phi_safe_logger import PhiSafeJsonFormatter, configure_phi_safe_logging
@@ -59,7 +60,7 @@ def test_nested_phi_field_is_redacted():
         name="test", level=logging.INFO, pathname="", lineno=0,
         msg="Nested PHI test", args=(), exc_info=None
     )
-    setattr(record, "patient_data", {"patient_name": "Jane Doe", "document_id": "DOC-002"})
+    record.patient_data = {"patient_name": "Jane Doe", "document_id": "DOC-002"}
     output = formatter.format(record)
     parsed = json.loads(output)
     if isinstance(parsed.get("patient_data"), dict):

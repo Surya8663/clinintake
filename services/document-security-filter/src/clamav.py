@@ -1,7 +1,9 @@
 import socket
 import struct
+
 from src.config import settings
 from src.logger import logger
+
 
 class ClamAVScanner:
     def __init__(self, host: str = None, port: int = None):
@@ -54,4 +56,4 @@ class ClamAVScanner:
         except Exception as e:
             logger.error("Failed to execute ClamAV socket communication", extra={"error": str(e)})
             # Enforce clinical safety: fail closed if malware checker is unresponsive
-            return False, f"Malware scanner connection error: {str(e)}"
+            return False, f"Malware scanner connection error: {e!s}"

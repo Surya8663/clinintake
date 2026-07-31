@@ -1,15 +1,15 @@
-from typing import Dict, Any, List, Tuple
-from pydantic import ValidationError
+from typing import Any
 
 from fhir.resources.condition import Condition
+from fhir.resources.encounter import Encounter
 from fhir.resources.medicationstatement import MedicationStatement
 from fhir.resources.observation import Observation
 from fhir.resources.patient import Patient
-from fhir.resources.encounter import Encounter
 from fhir.resources.resource import Resource
+from pydantic import ValidationError
 
-from src.models import ValidationIssue, ValidateSchemaResponse
 from src.logger import logger
+from src.models import ValidateSchemaResponse, ValidationIssue
 
 FHIR_RESOURCE_MAP = {
     "Condition": Condition,
@@ -19,9 +19,9 @@ FHIR_RESOURCE_MAP = {
     "Encounter": Encounter
 }
 
-def validate_fhir_resource_schema(resource_type: str, fhir_resource: Dict[str, Any]) -> ValidateSchemaResponse:
+def validate_fhir_resource_schema(resource_type: str, fhir_resource: dict[str, Any]) -> ValidateSchemaResponse:
     """Strictly validates FHIR R4 JSON object against official fhir.resources models."""
-    issues: List[ValidationIssue] = []
+    issues: list[ValidationIssue] = []
 
     if not isinstance(fhir_resource, dict):
         issues.append(ValidationIssue(
@@ -79,7 +79,7 @@ def validate_fhir_resource_schema(resource_type: str, fhir_resource: Dict[str, A
         issues.append(ValidationIssue(
             field="root",
             issue_type="syntax_error",
-            description=f"Malformed FHIR payload: {str(e)}",
+            description=f"Malformed FHIR payload: {e!s}",
             severity="error"
         ))
         return ValidateSchemaResponse(

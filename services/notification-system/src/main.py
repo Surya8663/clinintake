@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
+from src.alert_dispatcher import dispatch_multi_channel_alerts
 from src.config import settings
 from src.logger import logger
 from src.models import AlertDispatchRequest, AlertDispatchResponse
-from src.alert_dispatcher import dispatch_multi_channel_alerts
 
 app = FastAPI(
     title=settings.service_name,

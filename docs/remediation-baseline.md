@@ -31,21 +31,21 @@ from drifting back to:
 
 | Service | File | Field | Hardcoded Value |
 |---------|------|-------|-----------------|
-| audit-service | `src/config.py:8` | `hmac_secret_key` | `clinintake_kms_master_audit_secret_key_2026` |
-| document-gateway | `src/config.py:10` | `jwt_secret_key` | `test-secret-key-do-not-use-in-prod-1234567890` |
-| document-gateway | `src/config.py:13` | `encryption_key` | `L_U1X0b44v87gD2WvLgA_90f23JmH_fGfHjKsJ0G2k4=` |
-| fhir-integration-service | `src/config.py:9` | `ehr_client_secret` | `sec_kms_ehr_write_token_2026_x99` |
-| fhir-integration-service | `src/config.py:10` | `ehr_api_key` | `key_live_fhir_write_access` |
-| iam-service | `src/config.py:7` | `jwt_secret_key` | `clinintake_kms_master_jwt_secret_2026_x99` |
+| audit-service | `src/config.py:8` | `hmac_secret_key` | `<REDACTED — rotated>` |
+| document-gateway | `src/config.py:10` | `jwt_secret_key` | `<REDACTED — rotated>` |
+| document-gateway | `src/config.py:13` | `encryption_key` | `<REDACTED — rotated>` |
+| fhir-integration-service | `src/config.py:9` | `ehr_client_secret` | `<REDACTED — rotated>` |
+| fhir-integration-service | `src/config.py:10` | `ehr_api_key` | `<REDACTED — rotated>` |
+| iam-service | `src/config.py:7` | `jwt_secret_key` | `<REDACTED — rotated>` |
 
 ### Hardcoded Credentials in Defaults
 
 | Service | File | Field | Issue |
 |---------|------|-------|-------|
-| patient-identity-service | `src/config.py:10` | `database_url` | Contains `dev_user:dev_password` in default |
-| docker-compose.yml | lines 6-8 | postgres env | `POSTGRES_USER=dev_user`, `POSTGRES_PASSWORD=dev_password` |
-| docker-compose.yml | line 128 | fhir env | `EHR_CLIENT_SECRET=sec_kms_ehr_write_token_2026_x99` |
-| docker-compose.yml | line 188 | audit env | `HMAC_SECRET_KEY=clinintake_kms_master_audit_secret_key_2026` |
+| patient-identity-service | `src/config.py:10` | `database_url` | Contains `dev_user:<REDACTED>` in default |
+| docker-compose.yml | lines 6-8 | postgres env | `POSTGRES_USER=dev_user`, `POSTGRES_PASSWORD=<REDACTED>` |
+| docker-compose.yml | line 128 | fhir env | `EHR_CLIENT_SECRET=<REDACTED — rotated>` |
+| docker-compose.yml | line 188 | audit env | `HMAC_SECRET_KEY=<REDACTED — rotated>` |
 
 ### Missing Dockerfiles
 

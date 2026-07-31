@@ -6,9 +6,11 @@ Tests:
 Requires OPENAI_API_KEY or GOOGLE_API_KEY environment variable.
 """
 import os
+
 import pytest
-from src.models import ReferralDraftRequest
+
 from src.drafting_engine import generate_referral_draft_letter
+from src.models import ReferralDraftRequest
 
 SAMPLE_REFERRAL_REQUEST = ReferralDraftRequest(
     document_id="DOC-LLM-REF-001",

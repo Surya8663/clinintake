@@ -1,6 +1,5 @@
-from typing import List, Optional
+
 from src.models import RedFlagTrigger, VitalsMeasurement
-from src.logger import logger
 
 REDFLAG_SYNDROMES = [
     ("sepsis", ["sepsis", "septic shock", "bacteremia", "qsofa positive"], "Possible Sepsis Syndrome"),
@@ -13,14 +12,14 @@ REDFLAG_SYNDROMES = [
 ]
 
 def detect_clinical_redflags(
-    clinical_text: Optional[str],
-    symptoms: Optional[List[str]],
-    vitals: Optional[VitalsMeasurement],
-    news2_score: Optional[int],
-    qsofa_score: Optional[int]
-) -> List[RedFlagTrigger]:
+    clinical_text: str | None,
+    symptoms: list[str] | None,
+    vitals: VitalsMeasurement | None,
+    news2_score: int | None,
+    qsofa_score: int | None
+) -> list[RedFlagTrigger]:
     """Detects 7 emergency clinical red-flag categories using published clinical criteria."""
-    red_flags: List[RedFlagTrigger] = []
+    red_flags: list[RedFlagTrigger] = []
     text_content = (clinical_text or "").lower() + " " + " ".join([s.lower() for s in (symptoms or [])])
 
     # 1. Sepsis Evaluation via qSOFA and NEWS2

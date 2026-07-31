@@ -1,16 +1,20 @@
+import hashlib
+import hmac
+import json
 import os
-import time, json, hmac, hashlib
-import pytest
+import time
+
 from fastapi.testclient import TestClient
-from sqlalchemy.future import select
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 os.environ["HMAC_SECRET_KEY"] = "test_audit_hmac_key_2026"
 os.environ["JWT_SECRET_KEY"] = "test_audit_jwt_secret_2026"
 
-from src.main import app
-from src.vault_db import engine, insert_audit_event, AuditVaultRecord, AuditVaultImmutableError
 from services.common.jwt_verifier import _b64_encode
+from src.main import app
+from src.vault_db import AuditVaultImmutableError, AuditVaultRecord, engine, insert_audit_event
 
 client = TestClient(app)
 

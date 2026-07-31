@@ -1,14 +1,15 @@
 import os
-from typing import Dict, Any
-from fastapi import FastAPI, Depends
+from typing import Any
+
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from services.common.jwt_verifier import require_roles
 from services.common.security_headers import SecurityHeadersMiddleware
 from src.config import settings
+from src.kpi_engine import calculate_pipeline_kpis
 from src.logger import logger
 from src.models import KPISummaryResponse
-from src.kpi_engine import calculate_pipeline_kpis
 
 app = FastAPI(
     title=settings.service_name,
@@ -27,7 +28,7 @@ async def health_check():
 
 @app.get("/metrics/kpis", response_model=KPISummaryResponse)
 async def get_pipeline_kpis(
-    claims: Dict[str, Any] = Depends(require_roles(["quality:metrics:read", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["quality:metrics:read", "admin:system"]))
 ):
     """
     Computes PRD Section 13 KPIs from actual pipeline evaluation benchmark datasets.

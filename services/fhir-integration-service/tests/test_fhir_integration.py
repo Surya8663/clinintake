@@ -1,13 +1,17 @@
+import hashlib
+import hmac
+import json
 import os
-import time, json, hmac, hashlib
+import time
+
 from fastapi.testclient import TestClient
 
 os.environ["EHR_CLIENT_SECRET"] = "test_ehr_secret_2026"
 os.environ["EHR_API_KEY"] = "test_ehr_api_key_2026"
 os.environ["JWT_SECRET_KEY"] = "test_fhir_jwt_secret_2026"
 
-from src.main import app
 from services.common.jwt_verifier import _b64_encode
+from src.main import app
 
 client = TestClient(app)
 

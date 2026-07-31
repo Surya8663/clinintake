@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
 from src.config import settings
+from src.interaction_checker import check_all_interactions
 from src.logger import logger
 from src.models import InteractionCheckRequest, InteractionCheckResponse
-from src.interaction_checker import check_all_interactions
 
 app = FastAPI(
     title=settings.service_name,

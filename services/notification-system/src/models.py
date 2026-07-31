@@ -1,11 +1,12 @@
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+
 
 class AlertDispatchRequest(BaseModel):
     document_id: str
-    patient_id: Optional[str] = None
+    patient_id: str | None = None
     severity: str = Field("EMERGENCY", description="'EMERGENCY', 'CRITICAL', 'WARNING'")
-    channels: List[str] = Field(default_factory=lambda: ["SMS", "EMAIL", "WEBHOOK"])
+    channels: list[str] = Field(default_factory=lambda: ["SMS", "EMAIL", "WEBHOOK"])
     alert_message: str
 
 class ChannelDispatchStatus(BaseModel):
@@ -16,6 +17,6 @@ class ChannelDispatchStatus(BaseModel):
 class AlertDispatchResponse(BaseModel):
     document_id: str
     severity: str
-    dispatched_channels: List[ChannelDispatchStatus] = Field(default_factory=list)
+    dispatched_channels: list[ChannelDispatchStatus] = Field(default_factory=list)
     dispatch_latency_ms: float = Field(..., description="Latency measurement in ms (< 2000ms SLA)")
     sla_met: bool = Field(True, description="True if dispatch latency < 2.0s SLA requirement")

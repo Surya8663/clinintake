@@ -1,11 +1,12 @@
 import uuid
-import httpx
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status
 
-from src.config import settings
-from src.logger import logger
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+import httpx
+
 from src.auth import verify_jwt_token
+from src.config import settings
 from src.kms_store import doc_store
+from src.logger import logger
 
 app = FastAPI(
     title=settings.service_name,
@@ -45,7 +46,7 @@ async def upload_document(
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Clinical boundary safety check unavailable: {str(e)}"
+                detail=f"Clinical boundary safety check unavailable: {e!s}"
             )
 
     # Rejection logic based on scan results
@@ -85,7 +86,7 @@ async def upload_document(
                 headers={
                     "X-Trace-ID": trace_id,
                     "X-Correlation-ID": correlation_id,
-                    "Authorization": f"Bearer mock_service_jwt_token"
+                    "Authorization": "Bearer mock_service_jwt_token"
                 },
                 timeout=5.0
             )

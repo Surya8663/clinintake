@@ -1,14 +1,15 @@
 import os
 import shutil
+from unittest.mock import MagicMock, patch
+
+from cryptography.fernet import Fernet
+from fastapi.testclient import TestClient
 import jwt
 import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from cryptography.fernet import Fernet
 
-from src.main import app
 from src.config import settings
 from src.kms_store import doc_store
+from src.main import app
 
 client = TestClient(app)
 
@@ -19,7 +20,7 @@ def get_auth_headers(sub: str = "clinical-user-1") -> dict:
 
 # Helper to generate minimal valid PDF bytes with embedded text
 def generate_minimal_pdf(text: str = "") -> bytes:
-    content_stream = f"BT /F1 12 Tf 72 712 Td ({text}) Tj ET\n".encode("utf-8")
+    content_stream = f"BT /F1 12 Tf 72 712 Td ({text}) Tj ET\n".encode()
     stream_len = len(content_stream)
     
     pdf_bytes = (

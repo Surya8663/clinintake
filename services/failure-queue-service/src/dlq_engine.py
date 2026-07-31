@@ -5,14 +5,14 @@ Supports exponential backoff retry scheduling, dead-letter escalation,
 and authenticated clinician manual re-drive.
 """
 import datetime
-import math
-import random
 import logging
-from typing import List, Optional
+import random
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from src.models import FailureQueueRecord, FailureEnqueueRequest, FailureItemResponse
+
 from src.config import settings
+from src.models import FailureEnqueueRequest, FailureItemResponse, FailureQueueRecord
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def _next_retry_at(retry_count: int, base_delay_s: float = 30.0) -> datetime.datetime:
     """Calculate next retry timestamp using exponential backoff with jitter."""
     delay = base_delay_s * (2 ** retry_count) + random.uniform(0, 5)
-    return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=delay)
+    return datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=delay)
 
 
 async def enqueue_failure_item(
@@ -32,7 +32,7 @@ async def enqueue_failure_item(
     If the document already exists, increments retry_count and updates status.
     Upon retry exhaustion, escalates to manual_review dead-letter state.
     """
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     result = await db.execute(
         select(FailureQueueRecord).where(FailureQueueRecord.document_id == request.document_id)
     )
@@ -117,7 +117,7 @@ async def manual_redrive(
     record.retry_count = 0
     record.status = "re_driven_queued"
     record.redriven_by = redriven_by
-    record.redriven_at = datetime.datetime.now(datetime.timezone.utc)
+    record.redriven_at = datetime.datetime.now(datetime.UTC)
     record.next_retry_at = _next_retry_at(0)
     await db.commit()
     await db.refresh(record)
@@ -127,7 +127,7 @@ async def manual_redrive(
     return FailureItemResponse.model_validate(record)
 
 
-async def list_dlq_items(db: AsyncSession) -> List[FailureItemResponse]:
+async def list_dlq_items(db: AsyncSession) -> list[FailureItemResponse]:
     """Returns all items in the durable failure queue."""
     result = await db.execute(select(FailureQueueRecord))
     records = result.scalars().all()

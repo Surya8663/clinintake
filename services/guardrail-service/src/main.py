@@ -1,12 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 
 from src.config import settings
-from src.logger import logger
-from src.models import (
-    GroundingVerificationRequest, GroundingVerificationResponse,
-    PHIScrubRequest, PHIScrubResponse
-)
 from src.hallucination_guardrail import verify_clinical_claim_grounding
+from src.logger import logger
+from src.models import GroundingVerificationRequest, GroundingVerificationResponse, PHIScrubRequest, PHIScrubResponse
 from src.phi_scrubber import scrub_phi_from_text
 
 app = FastAPI(

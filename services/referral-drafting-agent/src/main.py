@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
 from src.config import settings
+from src.drafting_engine import generate_referral_draft_letter
 from src.logger import logger
 from src.models import ReferralDraftRequest, ReferralDraftResponse
-from src.drafting_engine import generate_referral_draft_letter
 
 app = FastAPI(
     title=settings.service_name,

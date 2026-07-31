@@ -1,23 +1,22 @@
-import uuid
 import hashlib
-from typing import List, Dict, Any, Optional
+from typing import Any
+import uuid
+
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from qdrant_client.http.exceptions import UnexpectedResponse, ResponseHandlingException
 
 from src.config import settings
 from src.logger import logger
 from src.models import GuidelineChunk, GuidelineMatch, GuidelineQueryResponse
 
+
 class QdrantUnavailableError(Exception):
     """Raised when Qdrant server is unreachable or offline."""
-    pass
 
 class QdrantCollectionError(Exception):
     """Raised when Qdrant collection operations fail."""
-    pass
 
-def _generate_dense_vector(text: str, dim: int = 384) -> List[float]:
+def _generate_dense_vector(text: str, dim: int = 384) -> list[float]:
     """
     Generates a deterministic 384-dimensional dense semantic embedding.
     Uses position-independent SHA-256 normalized vector projection.
@@ -41,7 +40,7 @@ def _generate_dense_vector(text: str, dim: int = 384) -> List[float]:
 def _generate_sparse_indices(text: str) -> models.SparseVector:
     """Generates sparse term frequency vector for lexical BM25-style match."""
     words = [w.strip(".,;:()").lower() for w in text.split() if len(w) > 2]
-    term_counts: Dict[int, float] = {}
+    term_counts: dict[int, float] = {}
     for word in words:
         idx = int(hashlib.md5(word.encode('utf-8')).hexdigest(), 16) % 10000
         term_counts[idx] = term_counts.get(idx, 0.0) + 1.0
@@ -54,7 +53,7 @@ def _generate_sparse_indices(text: str) -> models.SparseVector:
 class QdrantGuidelineRepository:
     def __init__(self):
         self.collection_name = settings.qdrant_collection_name
-        self._client: Optional[QdrantClient] = None
+        self._client: QdrantClient | None = None
 
     def get_client(self) -> QdrantClient:
         if self._client is None:
@@ -80,7 +79,7 @@ class QdrantGuidelineRepository:
             return True
         except Exception as e:
             logger.warning(f"Qdrant health check failed: {e}")
-            raise QdrantUnavailableError(f"Qdrant server unavailable at {settings.qdrant_url}: {str(e)}")
+            raise QdrantUnavailableError(f"Qdrant server unavailable at {settings.qdrant_url}: {e!s}")
 
     def ensure_collection_exists(self) -> None:
         """Bootstraps collection and payload indexes if not already existing."""
@@ -119,9 +118,9 @@ class QdrantGuidelineRepository:
             raise
         except Exception as e:
             logger.error(f"Failed to bootstrap Qdrant collection: {e}")
-            raise QdrantCollectionError(f"Failed to bootstrap collection '{self.collection_name}': {str(e)}")
+            raise QdrantCollectionError(f"Failed to bootstrap collection '{self.collection_name}': {e!s}")
 
-    def upsert_chunks(self, chunks: List[GuidelineChunk]) -> int:
+    def upsert_chunks(self, chunks: list[GuidelineChunk]) -> int:
         """Idempotently upserts guideline chunks with dense & sparse vectors into Qdrant."""
         if not chunks:
             return 0
@@ -177,8 +176,8 @@ class QdrantGuidelineRepository:
     def search_guidelines(
         self,
         query: str,
-        threshold_override: Optional[float] = None,
-        metadata_filter: Optional[Dict[str, Any]] = None
+        threshold_override: float | None = None,
+        metadata_filter: dict[str, Any] | None = None
     ) -> GuidelineQueryResponse:
         """
         Executes hybrid Qdrant search across dense semantic and sparse lexical vectors
@@ -243,7 +242,7 @@ class QdrantGuidelineRepository:
             logger.error(f"Qdrant query execution error: {e}")
             search_results = []
 
-        matches: List[GuidelineMatch] = []
+        matches: list[GuidelineMatch] = []
         for hit in search_results:
             if float(hit.score) < threshold:
                 continue

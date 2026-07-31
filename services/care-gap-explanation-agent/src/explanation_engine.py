@@ -1,6 +1,6 @@
-from typing import List, Set
-from src.models import ClinicalDecisionPackage, CareGapExplanationResponse, CitationItem, DocumentSpanItem
+
 from src.logger import logger
+from src.models import CareGapExplanationResponse, CitationItem, ClinicalDecisionPackage, DocumentSpanItem
 
 
 def _parse_deterministic_findings(package: ClinicalDecisionPackage):
@@ -8,9 +8,9 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
     Deterministic parsing of temporal gaps, safety flags, and drug interactions.
     This logic is correct and preserved as-is — its output feeds INTO the LLM prompt as grounding context.
     """
-    gaps_found: List[str] = []
-    citations: List[CitationItem] = []
-    spans: List[DocumentSpanItem] = []
+    gaps_found: list[str] = []
+    citations: list[CitationItem] = []
+    spans: list[DocumentSpanItem] = []
 
     # 1. Parse Temporal Care Gaps
     for gap in package.temporal_care_gaps:
@@ -46,7 +46,7 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
     return gaps_found, citations, spans
 
 
-def _build_deterministic_summary(gaps_found: List[str]) -> str:
+def _build_deterministic_summary(gaps_found: list[str]) -> str:
     """Builds the deterministic f-string summary (used as labeled fallback only)."""
     if gaps_found:
         return (
@@ -56,7 +56,7 @@ def _build_deterministic_summary(gaps_found: List[str]) -> str:
     return "Clinical Decision Package analysis completed: No open care gaps or clinical safety red flags identified."
 
 
-def _get_valid_citation_keys(package: ClinicalDecisionPackage) -> Set[str]:
+def _get_valid_citation_keys(package: ClinicalDecisionPackage) -> set[str]:
     """Builds the set of (source_title, clause_id) tuples that actually exist in the package."""
     valid_keys = set()
     for passage in package.guideline_passages:
@@ -69,7 +69,7 @@ def _get_valid_citation_keys(package: ClinicalDecisionPackage) -> Set[str]:
     return valid_keys
 
 
-def _verify_citations(llm_result: dict, valid_keys: Set[str]) -> List[str]:
+def _verify_citations(llm_result: dict, valid_keys: set[str]) -> list[str]:
     """
     Checks that every citation the LLM references actually exists in the package.
     Returns list of invalid citation descriptions (empty if all valid).
@@ -114,7 +114,7 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
         logger.warning(f"Guardrail BLOCKED explanation for doc_id={package.document_id}: Hallucination Detected")
 
     # Step 3: Try LLM generation
-    guideline_passages_raw = [p for p in (package.guideline_passages or [])]
+    guideline_passages_raw = list(package.guideline_passages or [])
 
     try:
         llm_result = call_llm_explanation(

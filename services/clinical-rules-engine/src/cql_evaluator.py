@@ -1,12 +1,14 @@
-from typing import Dict, Any, List, Tuple
-from src.models import CQLRuleResult, CQLEvaluateResponse
-from src.logger import logger
+from typing import Any
 
-def evaluate_cql_rules(patient_id: str, clinical_data: Dict[str, Any], rule_libraries: List[str]) -> CQLEvaluateResponse:
+from src.logger import logger
+from src.models import CQLEvaluateResponse, CQLRuleResult
+
+
+def evaluate_cql_rules(patient_id: str, clinical_data: dict[str, Any], rule_libraries: list[str]) -> CQLEvaluateResponse:
     """Evaluates CQL Clinical Quality Language inclusion and exclusion rules deterministically."""
-    results: List[CQLRuleResult] = []
-    inclusions: List[str] = []
-    exclusions: List[str] = []
+    results: list[CQLRuleResult] = []
+    inclusions: list[str] = []
+    exclusions: list[str] = []
 
     diagnoses = clinical_data.get("diagnoses", [])
     medications = clinical_data.get("medications", [])
@@ -23,9 +25,9 @@ def evaluate_cql_rules(patient_id: str, clinical_data: Dict[str, Any], rule_libr
 
     # Rule 1: Diabetes Care Management Rule (CQL Rule)
     if "Diabetes_Screening" in rule_libraries:
-        has_dm_diag = any("diabetes" in d or "e11" in c.lower() for d, c in zip(diag_names, diag_codes))
+        has_dm_diag = any("diabetes" in d or "e11" in c.lower() for d, c in zip(diag_names, diag_codes, strict=False))
         has_dm_med = any("metformin" in m or "insulin" in m for m in med_names)
-        has_hba1c = any("hba1c" in l or "4548-4" in c for l, c in zip(lab_names, loinc_codes))
+        has_hba1c = any("hba1c" in l or "4548-4" in c for l, c in zip(lab_names, loinc_codes, strict=False))
         
         satisfied = has_dm_diag or has_dm_med or has_hba1c
         rationale = "Patient meets inclusion for Diabetes Care Protocol (Diabetes diagnosis, medication, or HbA1c lab present)." if satisfied else "No Diabetes indicators found."
@@ -42,7 +44,7 @@ def evaluate_cql_rules(patient_id: str, clinical_data: Dict[str, Any], rule_libr
 
     # Rule 2: Hypertension Management Rule
     if "Hypertension_Control" in rule_libraries:
-        has_htn_diag = any("hypertension" in d or "i10" in c.lower() for d, c in zip(diag_names, diag_codes))
+        has_htn_diag = any("hypertension" in d or "i10" in c.lower() for d, c in zip(diag_names, diag_codes, strict=False))
         has_htn_med = any("lisinopril" in m or "amlodipine" in m or "losartan" in m for m in med_names)
         
         satisfied = has_htn_diag or has_htn_med

@@ -1,8 +1,11 @@
+import contextlib
 import json
-from typing import Optional, Dict, Any
+
 import redis.asyncio as redis
+
 from src.config import settings
 from src.logger import logger
+
 try:
     from src.state_machine import DocumentWorkflow, OptimisticLockError
 except ImportError:
@@ -10,8 +13,8 @@ except ImportError:
 
 class RedisPersistence:
     def __init__(self):
-        self.client: Optional[redis.Redis] = None
-        self._local_db: Dict[str, dict] = {}
+        self.client: redis.Redis | None = None
+        self._local_db: dict[str, dict] = {}
 
     def get_client(self) -> redis.Redis:
         if self.client is None:
@@ -53,7 +56,7 @@ class RedisPersistence:
             raise OptimisticLockError(f"Optimistic lock conflict: expected v{expected_version}, found v{existing.version}")
         await self.save_workflow(workflow)
 
-    async def get_workflow(self, document_id: str) -> Optional[DocumentWorkflow]:
+    async def get_workflow(self, document_id: str) -> DocumentWorkflow | None:
         key = f"workflow:{document_id}"
         try:
             client = self.get_client()
@@ -87,10 +90,8 @@ class RedisPersistence:
 
     async def close(self) -> None:
         if self.client:
-            try:
+            with contextlib.suppress(Exception):
                 await self.client.close()
-            except Exception:
-                pass
             self.client = None
 
 persistence = RedisPersistence()

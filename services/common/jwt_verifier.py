@@ -1,12 +1,14 @@
+import base64
+from collections.abc import Callable
+import hashlib
+import hmac
+import json
 import os
 import time
-import json
-import base64
-import hmac
-import hashlib
-from typing import Dict, Any, List, Optional, Callable
-from fastapi import Depends, HTTPException, Security, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Any
+
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -25,7 +27,7 @@ def _b64_decode(data_str: str) -> bytes:
         data_str += '=' * padding
     return base64.urlsafe_b64decode(data_str)
 
-def decode_and_verify_jwt(token: str) -> Dict[str, Any]:
+def decode_and_verify_jwt(token: str) -> dict[str, Any]:
     """
     Decodes and verifies JWT signature, expiration, issuer, and claims.
     Supports Keycloak OIDC tokens and HMAC-SHA256 tokens.
@@ -81,7 +83,7 @@ def decode_and_verify_jwt(token: str) -> Dict[str, Any]:
             raise HTTPException(status_code=401, detail="Unsigned tokens are strictly forbidden")
 
         # Extract roles from realm_access or direct role/roles claims
-        roles: List[str] = []
+        roles: list[str] = []
         if "realm_access" in payload and isinstance(payload["realm_access"], dict):
             roles.extend(payload["realm_access"].get("roles", []))
         if "roles" in payload and isinstance(payload["roles"], list):
@@ -90,7 +92,7 @@ def decode_and_verify_jwt(token: str) -> Dict[str, Any]:
             roles.append(payload["role"])
 
         # Scope extraction
-        scopes: List[str] = []
+        scopes: list[str] = []
         if "scope" in payload:
             if isinstance(payload["scope"], str):
                 scopes = payload["scope"].split()
@@ -116,19 +118,19 @@ def decode_and_verify_jwt(token: str) -> Dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Token verification failed: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Token verification failed: {e!s}")
 
 
-async def get_current_user_claims(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)) -> Dict[str, Any]:
+async def get_current_user_claims(credentials: HTTPAuthorizationCredentials | None = Depends(security_bearer)) -> dict[str, Any]:
     """FastAPI Dependency: Ensures a valid Bearer token is present and verified."""
     if not credentials or not credentials.credentials:
         raise HTTPException(status_code=401, detail="Missing authorization token")
     return decode_and_verify_jwt(credentials.credentials)
 
 
-def require_roles(allowed_roles: List[str]) -> Callable:
+def require_roles(allowed_roles: list[str]) -> Callable:
     """FastAPI Dependency Factory: Requires user to have at least one of the specified roles."""
-    async def role_checker(claims: Dict[str, Any] = Depends(get_current_user_claims)) -> Dict[str, Any]:
+    async def role_checker(claims: dict[str, Any] = Depends(get_current_user_claims)) -> dict[str, Any]:
         user_roles = claims.get("roles", [])
         # Check if any allowed role matches
         if not any(role in user_roles for role in allowed_roles):
@@ -140,7 +142,7 @@ def require_roles(allowed_roles: List[str]) -> Callable:
     return role_checker
 
 
-async def require_m2m_service(claims: Dict[str, Any] = Depends(get_current_user_claims)) -> Dict[str, Any]:
+async def require_m2m_service(claims: dict[str, Any] = Depends(get_current_user_claims)) -> dict[str, Any]:
     """FastAPI Dependency: Requires a machine-to-machine service token."""
     user_roles = claims.get("roles", [])
     client_id = claims.get("client_id", "")
@@ -161,7 +163,7 @@ async def require_m2m_service(claims: Dict[str, Any] = Depends(get_current_user_
     return claims
 
 
-def create_test_jwt(user_id: str = "dr_smith", roles: Optional[List[str]] = None, exp_seconds: int = 3600) -> str:
+def create_test_jwt(user_id: str = "dr_smith", roles: list[str] | None = None, exp_seconds: int = 3600) -> str:
     """Helper to generate signed HMAC-SHA256 test JWT tokens for unit/integration tests."""
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {

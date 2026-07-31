@@ -1,10 +1,11 @@
-from fastapi import FastAPI, HTTPException, status, Depends
-from fastapi.responses import JSONResponse
-import httpx
 import asyncio
 import datetime
-import os
 import logging
+import os
+
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+import httpx
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -20,7 +21,7 @@ async def liveness():
     Liveness check: confirms the process is running and responding.
     Does not probe external dependencies - only confirms the process is alive.
     """
-    return {"status": "alive", "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    return {"status": "alive", "timestamp": datetime.datetime.now(datetime.UTC).isoformat()}
 
 
 @app.get("/health/ready")
@@ -70,7 +71,7 @@ async def readiness():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "not_ready",
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
                 "dependencies": dependency_results,
                 "unhealthy": unhealthy
             }
@@ -78,6 +79,6 @@ async def readiness():
 
     return {
         "status": "ready",
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         "dependencies": dependency_results
     }

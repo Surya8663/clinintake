@@ -1,7 +1,7 @@
 import re
-from typing import List, Any
-from src.models import GroundingVerificationRequest, GroundingVerificationResponse
+
 from src.logger import logger
+from src.models import GroundingVerificationRequest, GroundingVerificationResponse
 
 FABRICATED_KEYWORDS = [
     "fabricated",

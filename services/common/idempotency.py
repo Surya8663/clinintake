@@ -3,9 +3,9 @@ Idempotency key store backed by Redis with TTL.
 Used to prevent duplicate EHR writes, duplicate audit events, and duplicate DLQ entries.
 Redis is ephemeral only - idempotency keys are short-lived and not treated as durable clinical records.
 """
-import logging
 import hashlib
-from typing import Optional
+import logging
+
 import redis.asyncio as aioredis
 
 logger = logging.getLogger(__name__)

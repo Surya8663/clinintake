@@ -1,6 +1,8 @@
-from typing import Dict, Any, Optional
+from typing import Any
+
 from src.models import GuidelineQueryResponse
 from src.qdrant_repository import qdrant_repo
+
 
 class GuidelineVectorStore:
     """Qdrant-backed hybrid RAG vector store facade."""
@@ -8,8 +10,8 @@ class GuidelineVectorStore:
     def search_guidelines(
         self,
         query: str,
-        threshold_override: Optional[float] = None,
-        metadata_filter: Optional[Dict[str, Any]] = None
+        threshold_override: float | None = None,
+        metadata_filter: dict[str, Any] | None = None
     ) -> GuidelineQueryResponse:
         """Queries Qdrant hybrid vector store with dense and sparse fusion."""
         return qdrant_repo.search_guidelines(

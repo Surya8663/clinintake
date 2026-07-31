@@ -3,11 +3,14 @@ Unit tests for the circuit breaker with exponential backoff.
 Verifies CLOSED → OPEN → HALF_OPEN → CLOSED state transitions.
 """
 import asyncio
-import pytest
-import sys
 from pathlib import Path
+import sys
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import contextlib
+
 from services.common.circuit_breaker import CircuitBreaker, CircuitBreakerOpen, CircuitState
 
 
@@ -25,10 +28,8 @@ async def test_circuit_breaker_opens_after_failure_threshold():
         raise ConnectionError("Connection refused")
 
     for _ in range(3):
-        try:
+        with contextlib.suppress(ConnectionError):
             await cb.call(always_fails)
-        except ConnectionError:
-            pass
 
     assert cb._state == CircuitState.OPEN
 

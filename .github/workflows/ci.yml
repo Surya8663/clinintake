@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install pytest pytest-cov pytest-asyncio pydantic pydantic-settings fastapi httpx python-jose sqlalchemy aiosqlite python-json-logger cryptography filetype Pillow transitions qdrant-client pypdf aiokafka rapidfuzz fhir.resources python-dateutil
+        run: pip install pytest pytest-cov pytest-asyncio pydantic pydantic-settings fastapi httpx python-jose sqlalchemy aiosqlite python-json-logger cryptography filetype Pillow transitions qdrant-client pypdf aiokafka rapidfuzz fhir.resources python-dateutil pytesseract redis
       - name: Run unit tests
         run: |
           EXIT=0

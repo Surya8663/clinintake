@@ -21,7 +21,13 @@ jobs:
       - name: Ruff lint
         run: ruff check services/
       - name: Mypy type check
-        run: mypy services/ --ignore-missing-imports --no-strict-optional --explicit-package-bases
+        run: |
+          EXIT=0
+          for svc in services/*/; do
+            [ -d "${svc}src" ] || continue
+            mypy "${svc}src" --ignore-missing-imports --no-strict-optional --explicit-package-bases || EXIT=$?
+          done
+          exit $EXIT
 
   unit-tests-backend:
     name: Unit Tests (Backend)

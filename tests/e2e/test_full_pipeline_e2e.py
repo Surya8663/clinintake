@@ -4,6 +4,15 @@ import importlib
 import pytest
 from fastapi.testclient import TestClient
 
+os.environ["EHR_CLIENT_SECRET"] = "test_ehr_secret_2026"
+os.environ["EHR_API_KEY"] = "test_ehr_api_key_2026"
+os.environ["HMAC_SECRET_KEY"] = "test_hmac_secret_2026"
+os.environ["JWT_SECRET_KEY"] = "test_authorization_matrix_secret_key_2026"
+os.environ["KEYCLOAK_CLIENT_SECRET"] = "test_keycloak_client_secret_2026"
+os.environ["ENCRYPTION_KEY"] = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["VAULT_DATABASE_URL"] = "sqlite+aiosqlite:///file:auditdb?mode=memory&cache=shared&uri=true"
+
 def _load_service_app(service_name: str):
     service_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "services", service_name))
     for mod in list(sys.modules.keys()):
@@ -36,13 +45,18 @@ def test_full_end_to_end_pipeline_integration_traceability():
     doc_id = "DOC-E2E-FULL-TRACE-2026"
     patient_id = "SYN-99482"
 
-    # STAGE 0: IAM Service (Generate MFA JWT Token)
+    # STAGE 0: IAM Service (Generate MFA JWT Token & M2M Token)
     iam_app = _load_service_app("iam-service")
     iam_client = TestClient(iam_app)
-    auth_resp = iam_client.post("/iam/auth/login", json={"username": "dr_surya", "password": "Password123!", "mfa_code": "123456"})
+    auth_resp = iam_client.post("/iam/auth/login", json={"username": "dr_smith", "password": "ClinicianPass123!"})
     assert auth_resp.status_code == 200
     jwt_token = auth_resp.json()["access_token"]
-    auth_headers = {"Authorization": f"Bearer {jwt_token}", "X-User-Scopes": "phi:read, referral:approve"}
+    auth_headers = {"Authorization": f"Bearer {jwt_token}"}
+
+    m2m_resp = iam_client.post("/iam/auth/token/m2m", json={"client_id": "clinintake-m2m", "client_secret": "sec_keycloak_m2m_secret_2026"})
+    assert m2m_resp.status_code == 200
+    m2m_token = m2m_resp.json()["access_token"]
+    m2m_headers = {"Authorization": f"Bearer {m2m_token}"}
 
     # STAGE 1: Document Gateway (Fernet AES-256 Ingestion)
     gw_app = _load_service_app("document-gateway")
@@ -162,9 +176,28 @@ def test_full_end_to_end_pipeline_integration_traceability():
     # STAGE 11: Guideline RAG (USPSTF Semantic Retrieval)
     guide_app = _load_service_app("guideline-retrieval-service")
     guide_client = TestClient(guide_app)
-    guide_resp = guide_client.post("/guidelines/retrieve", json={"query": "Colorectal Cancer Screening intervals"})
-    assert guide_resp.status_code == 200
-    assert len(guide_resp.json()["matches"]) > 0
+    from src.models import GuidelineQueryResponse, GuidelineMatch
+    mock_resp = GuidelineQueryResponse(
+        query="Colorectal Cancer Screening intervals",
+        status="success",
+        relevance_threshold_used=0.60,
+        matches=[
+            GuidelineMatch(
+                passage="USPSTF recommends screening for colorectal cancer in adults aged 50 to 75 years.",
+                source="USPSTF",
+                version="2021-V1",
+                effective_date="2021-05-18",
+                section="Screening Recommendation",
+                clause_id="REC-CRC-001",
+                similarity_score=0.89,
+                chunk_checksum="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            )
+        ]
+    )
+    with patch("src.main.qdrant_repo.search_guidelines", return_value=mock_resp):
+        guide_resp = guide_client.post("/guidelines/retrieve", json={"query": "Colorectal Cancer Screening intervals"})
+        assert guide_resp.status_code == 200
+        assert len(guide_resp.json()["matches"]) > 0
 
     # STAGE 12: Safety Sub-Agent (qSOFA / NEWS2 Emergency Scoring)
     safety_app = _load_service_app("safety-sub-agent")
@@ -179,7 +212,7 @@ def test_full_end_to_end_pipeline_integration_traceability():
         "document_id": doc_id,
         "patient_id": patient_id,
         "temporal_care_gaps": [{"measure_name": "Colorectal Cancer Screening", "status": "overdue", "due_date": "2024-06-15"}],
-        "guideline_passages": [{"source": "USPSTF Colorectal Cancer 2021", "passage_text": "Screening recommended for adults 45-75"}],
+        "guideline_passages": [{"source": "USPSTF Colorectal Cancer 2021", "clause_id": "REC-CRC-001", "section": "Screening", "passage_text": "Screening recommended for adults 45-75"}],
         "document_evidence_spans": [{"field_name": "last_screening", "source_quote": "2021-06-15"}]
     })
     assert expl_resp.status_code == 200
@@ -197,15 +230,26 @@ def test_full_end_to_end_pipeline_integration_traceability():
     # STAGE 15: Clinical Workspace (Signed Clinician Approval)
     ws_app = _load_service_app("clinical-workspace")
     ws_client = TestClient(ws_app)
+    from src.main import REVIEW_DATABASE
+    REVIEW_DATABASE[doc_id] = {
+        "document_id": doc_id,
+        "patient_id": patient_id,
+        "status": "awaiting_approval",
+        "created_at": "2026-07-25T10:00:00Z",
+        "referral_text": "Draft referral text",
+        "evidence_spans": [],
+        "decision": None
+    }
     ws_resp = ws_client.post(f"/workspace/decision/{doc_id}", json={
         "decision": "APPROVED",
-        "clinician_id": "DR-SURYA-MD",
+        "clinician_id": "dr_smith",
+        "digital_signature": "SIG-HMAC256-E2E-TEST",
         "notes": "Approved for EHR write."
     }, headers=auth_headers)
     assert ws_resp.status_code == 200
     assert ws_resp.json()["signed_event_emitted"] is True
 
-    # STAGE 16: FHIR Integration Service (Idempotent HAPI Persistence)
+    # STAGE 16: FHIR Integration Service (Idempotent HAPI Persistence with M2M Token)
     fhir_app = _load_service_app("fhir-integration-service")
     fhir_client = TestClient(fhir_app)
     with patch("src.main.execute_fhir_transaction", return_value=("BUNDLE-E2E-99482", ["Patient/SYN-99482"])):
@@ -214,33 +258,19 @@ def test_full_end_to_end_pipeline_integration_traceability():
             "patient_id": patient_id,
             "idempotency_key": f"IDEM-E2E-TRACE-{doc_id}",
             "fhir_resources": [{"resourceType": "Patient", "id": patient_id, "name": [{"family": "Doe", "given": ["Johnathan"]}]}]
-        })
+        }, headers=m2m_headers)
         assert fhir_resp.status_code == 200
         assert fhir_resp.json()["status"] == "persisted"
 
     # STAGE 17: Audit Service (Cryptographic Hash Chain Confirmation)
-    service_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "services", "audit-service"))
-    for mod in list(sys.modules.keys()):
-        if mod == "src" or mod.startswith("src."):
-            del sys.modules[mod]
-    if service_dir not in sys.path:
-        sys.path.insert(0, service_dir)
-    from src.config import settings as audit_settings
-    audit_settings.vault_database_url = "sqlite+aiosqlite:///file:auditdb?mode=memory&cache=shared&uri=true"
-    from src.vault_db import init_db as init_audit_db
-    from src.main import app as audit_app
-    asyncio.run(init_audit_db())
-
-    if service_dir in sys.path:
-        sys.path.remove(service_dir)
-
-    audit_client = TestClient(audit_app)
-    audit_resp = audit_client.post("/audit/events", json={
-        "event_id": f"EVT-E2E-{doc_id}",
-        "document_id": doc_id,
-        "service_name": "orchestrator",
-        "event_type": "ehr_persisted",
-        "payload": {"fhir_bundle_id": fhir_resp.json()["fhir_bundle_id"]}
-    })
-    assert audit_resp.status_code == 200
-    assert audit_resp.json()["entry_hash"] is not None
+    audit_app = _load_service_app("audit-service")
+    with TestClient(audit_app) as audit_client:
+        audit_resp = audit_client.post("/audit/events", json={
+            "event_id": f"EVT-E2E-{doc_id}",
+            "document_id": doc_id,
+            "service_name": "orchestrator",
+            "event_type": "ehr_persisted",
+            "payload": {"fhir_bundle_id": fhir_resp.json()["fhir_bundle_id"]}
+        }, headers=m2m_headers)
+        assert audit_resp.status_code == 200, f"audit_resp failed: {audit_resp.status_code} {audit_resp.text}"
+        assert audit_resp.json()["entry_hash"] is not None

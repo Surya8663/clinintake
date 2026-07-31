@@ -21,7 +21,7 @@ jobs:
       - name: Ruff lint
         run: ruff check services/
       - name: Mypy type check
-        run: mypy services/ --ignore-missing-imports --no-strict-optional
+        run: mypy services/ --ignore-missing-imports --no-strict-optional --explicit-package-bases
 
   unit-tests-backend:
     name: Unit Tests (Backend)

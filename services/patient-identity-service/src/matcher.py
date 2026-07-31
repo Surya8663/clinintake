@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 
 from rapidfuzz.distance import JaroWinkler
 
@@ -64,7 +65,7 @@ def resolve_patient_identity(
     """
     dob_parsed = parse_dob(dob_str)
     
-    candidates = []
+    candidates: list[dict[str, Any]] = []
     best_patient = None
     best_score = 0.0
     

@@ -27,7 +27,7 @@ async def health_check():
         "ehr_client_configured": bool(settings.ehr_client_id)
     }
 
-USED_JTI_CACHE = set()
+USED_JTI_CACHE: set[str] = set()
 
 @app.post("/fhir/write-transaction", response_model=FHIRTransactionResponse)
 async def write_fhir_transaction(
@@ -83,4 +83,4 @@ async def write_fhir_transaction(
     # 4. Save to Idempotency Store
     check_and_set_idempotency_key(request.idempotency_key, response_payload)
 
-    return FHIRTransactionResponse(**response_payload)
+    return FHIRTransactionResponse(**response_payload)  # type: ignore[arg-type]

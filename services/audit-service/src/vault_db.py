@@ -2,16 +2,18 @@ import datetime
 import json
 from typing import Any
 
-from sqlalchemy import Column, Integer, String, Text, event
+from sqlalchemy import Integer, String, Text, event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.future import select
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from src.audit_signer import compute_entry_hash, compute_hmac_signature
 from src.config import settings
 from src.logger import logger
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 class AuditVaultImmutableError(Exception):
     """Raised when an UPDATE or DELETE operation is attempted on Audit Vault."""
@@ -19,16 +21,16 @@ class AuditVaultImmutableError(Exception):
 class AuditVaultRecord(Base):
     __tablename__ = "audit_vault"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    event_id = Column(String(64), nullable=False)
-    document_id = Column(String(64), nullable=False, index=True)
-    service_name = Column(String(64), nullable=False, index=True)
-    event_type = Column(String(64), nullable=False, index=True)
-    payload_json = Column(Text, nullable=False)
-    prev_hash = Column(String(64), nullable=False)
-    entry_hash = Column(String(64), nullable=False, unique=True)
-    hmac_signature = Column(String(64), nullable=False)
-    created_at = Column(String(64), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    document_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    service_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    entry_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    hmac_signature: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[str] = mapped_column(String(64), nullable=False)
 
 # ENFORCE STRICT APPEND-ONLY IMMUTABILITY AT ORM / DB LAYER
 @event.listens_for(AuditVaultRecord, "before_update")

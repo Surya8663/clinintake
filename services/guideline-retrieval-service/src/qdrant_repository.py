@@ -64,7 +64,7 @@ class QdrantGuidelineRepository:
                     self._client = QdrantClient(
                         url=settings.qdrant_url,
                         api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
-                        timeout=3.0
+                        timeout=3
                     )
             except Exception as e:
                 logger.error(f"Failed to connect to Qdrant at {settings.qdrant_url}: {e}")
@@ -225,7 +225,7 @@ class QdrantGuidelineRepository:
                         )
                     )
 
-        qdrant_filter = models.Filter(must=must_conditions)
+        qdrant_filter = models.Filter(must=must_conditions)  # type: ignore[arg-type]
         dense_query_vec = _generate_dense_vector(query)
 
         # Execute dense search via Qdrant query_points (qdrant-client 1.17+)
@@ -244,9 +244,9 @@ class QdrantGuidelineRepository:
 
         matches: list[GuidelineMatch] = []
         for hit in search_results:
-            if float(hit.score) < threshold:
+            if float(hit.score) < threshold:  # type: ignore[union-attr]
                 continue
-            payload = hit.payload or {}
+            payload = hit.payload or {}  # type: ignore[union-attr]
             matches.append(
                 GuidelineMatch(
                     passage=payload.get("text", ""),
@@ -255,8 +255,8 @@ class QdrantGuidelineRepository:
                     effective_date=payload.get("effective_date", "2024-01-01"),
                     section=payload.get("section", "Clinical Recommendation"),
                     clause_id=payload.get("clause_id", "CLAUSE-01"),
-                    similarity_score=round(float(hit.score), 4),
-                    qdrant_point_id=str(hit.id),
+                    similarity_score=round(float(hit.score), 4),  # type: ignore[union-attr]
+                    qdrant_point_id=str(hit.id),  # type: ignore[union-attr]
                     fusion_method="RRF_HYBRID_COSINE",
                     chunk_checksum=payload.get("chunk_checksum", "")
                 )

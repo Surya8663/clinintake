@@ -20,6 +20,15 @@ class CitationItem(BaseModel):
     passage_text: str
     similarity_score: float
 
+class GuidelinePassage(BaseModel):
+    clause_id: str
+    source: str = ""
+    source_title: str = ""
+    version: str = ""
+    section: str = ""
+    passage_text: str = ""
+    similarity_score: float = 0.0
+
 class DocumentSpanItem(BaseModel):
     field_name: str
     source_quote: str

@@ -1,28 +1,30 @@
 import datetime
 
-from sqlalchemy import JSON, Column, Date, DateTime, String
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import JSON, Date, DateTime, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 class Patient(Base):
     __tablename__ = "patients"
     
-    id = Column(String(50), primary_key=True)
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
-    date_of_birth = Column(Date, nullable=False)
-    gender = Column(String(20), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC))
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    date_of_birth: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC))
 
 class QuarantineRecord(Base):
     __tablename__ = "quarantine_queue"
     
-    document_id = Column(String(50), primary_key=True)
-    first_name = Column(String(100), nullable=True)
-    last_name = Column(String(100), nullable=True)
-    date_of_birth = Column(String(50), nullable=True)
-    match_attempts = Column(JSON, nullable=True)  # Logs of candidates and their matching scores
-    status = Column(String(20), default="pending_review")  # pending_review, resolved
-    resolved_patient_id = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC))
+    document_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    date_of_birth: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    match_attempts: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # Logs of candidates and their matching scores
+    status: Mapped[str] = mapped_column(String(20), default="pending_review")  # pending_review, resolved
+    resolved_patient_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC))

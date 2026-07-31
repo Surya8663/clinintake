@@ -41,7 +41,7 @@ def validate_fhir_resource_schema(resource_type: str, fhir_resource: dict[str, A
         # Fallback to generic Resource model validation
         model_cls = Resource
     else:
-        model_cls = FHIR_RESOURCE_MAP[res_type]
+        model_cls = FHIR_RESOURCE_MAP[res_type]  # type: ignore[assignment]
 
     try:
         validated_obj = model_cls.model_validate(fhir_resource)

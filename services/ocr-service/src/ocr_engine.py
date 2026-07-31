@@ -17,7 +17,7 @@ def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPag
     try:
         data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
         words: list[OCRWord] = []
-        lines_dict = {}
+        lines_dict: dict[int, list[OCRWord]] = {}
 
         n_boxes = len(data['text'])
         for i in range(n_boxes):

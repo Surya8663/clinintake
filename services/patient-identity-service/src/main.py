@@ -66,7 +66,7 @@ async def resolve_identity(req: ResolutionRequest, db: AsyncSession = Depends(ge
         first_name=req.first_name,
         last_name=req.last_name,
         dob_str=req.date_of_birth,
-        patients=patients
+        patients=list(patients)
     )
     
     # 3. Handle Resolution Outcomes

@@ -23,8 +23,9 @@ def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str,
         import redis
         r = redis.Redis(host=settings.redis_host, port=settings.redis_port, db=0, socket_timeout=0.5)
         existing = r.get(key)
-        if existing:
-            data = json.loads(existing.decode('utf-8'))
+        if existing is not None and isinstance(existing, (bytes, str)):
+            raw_str = existing.decode('utf-8') if isinstance(existing, bytes) else existing
+            data = json.loads(raw_str)
             logger.info(f"Redis Idempotency Hit for key='{idempotency_key}'. Returning cached no-op response.")
             return True, data
         

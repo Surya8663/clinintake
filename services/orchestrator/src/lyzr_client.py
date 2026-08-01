@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import time
 from typing import Any
 
 import httpx
@@ -14,6 +15,10 @@ class LyzrApiError(Exception):
 
 class LyzrGovernanceViolationError(LyzrApiError):
     """Raised when a Lyzr Responsible AI policy (prompt injection, grounding) is violated."""
+
+
+class LyzrRateLimitError(LyzrApiError):
+    """Raised when Lyzr API returns a 429 rate limit error."""
 
 
 class LyzrTimeoutError(LyzrApiError):
@@ -36,7 +41,6 @@ class LyzrInvalidResponseError(LyzrApiError):
     """Raised when Lyzr API returns a malformed or invalid response payload."""
 
 
-# Retain alias for backward compatibility if imported elsewhere
 LyzrExecutionTimeoutError = LyzrTimeoutError
 
 
@@ -60,7 +64,6 @@ class LyzrSuperFlowClient:
         if not self.api_key or self.api_key in ("MISSING", "INVALID_CREDENTIALS"):
             raise LyzrApiError("LYZR_API_KEY mandatory configuration missing or invalid.")
 
-        # Check for prompt injection in untrusted input text
         doc_text = str(input_payload.get("raw_text", "") or input_payload.get("ocr_text", ""))
         if "ignore previous instructions" in doc_text.lower() or "system prompt:" in doc_text.lower():
             logger.warning(f"[LYZR GOVERNANCE] Prompt injection attempt detected in document {document_id}")
@@ -75,36 +78,55 @@ class LyzrSuperFlowClient:
         url = f"{self.base_url}/v3/superflow/{self.superflow_id}/execute"
         logger.info(f"Starting Lyzr SuperFlow execution for document={document_id}")
 
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                res = client.post(url, json=request_body, headers=self._get_headers())
-                if res.status_code == 200:
-                    try:
-                        data = res.json()
-                    except Exception as json_err:
-                        raise LyzrInvalidResponseError("Lyzr returned malformed JSON response") from json_err
+        max_retries = settings.lyzr_max_retries
+        timeout_sec = settings.lyzr_request_timeout
+        last_exception = None
 
-                    if not isinstance(data, dict) or "execution_id" not in data:
-                        raise LyzrInvalidResponseError("Lyzr response missing required 'execution_id' field")
+        for attempt in range(max_retries + 1):
+            if attempt > 0:
+                backoff_sec = min(2.0, 0.05 * (2 ** attempt))
+                logger.info(f"Retrying Lyzr SuperFlow execution (attempt {attempt}/{max_retries}) after {backoff_sec}s...")
+                time.sleep(backoff_sec)
 
-                    return {
-                        "execution_id": data["execution_id"],
-                        "session_id": data.get("session_id", ""),
-                        "trace_id": data.get("trace_id", ""),
-                        "status": data.get("status", "RUNNING"),
-                        "nodes": data.get("nodes", {}),
-                    }
-                elif 400 <= res.status_code < 500:
-                    raise LyzrRequestError(f"Lyzr request rejected with HTTP {res.status_code}: {res.text}")
-                else:
-                    raise LyzrServiceError(f"Lyzr service returned server error HTTP {res.status_code}: {res.text}")
+            try:
+                with httpx.Client(timeout=timeout_sec) as client:
+                    res = client.post(url, json=request_body, headers=self._get_headers())
+                    if res.status_code == 200:
+                        try:
+                            data = res.json()
+                        except Exception as json_err:
+                            raise LyzrInvalidResponseError("Lyzr returned malformed JSON response") from json_err
 
-        except httpx.TimeoutException as e:
-            logger.error(f"Lyzr API request timed out: {e}")
-            raise LyzrTimeoutError(f"Lyzr API execution timed out: {e}") from e
-        except (httpx.ConnectError, httpx.NetworkError, httpx.RequestError) as e:
-            logger.error(f"Lyzr API connection error: {e}")
-            raise LyzrUnavailableError(f"Lyzr API service unavailable: {e}") from e
+                        if not isinstance(data, dict) or "execution_id" not in data:
+                            raise LyzrInvalidResponseError("Lyzr response missing required 'execution_id' field")
+
+                        return {
+                            "execution_id": data["execution_id"],
+                            "session_id": data.get("session_id", ""),
+                            "trace_id": data.get("trace_id", ""),
+                            "status": data.get("status", "RUNNING"),
+                            "nodes": data.get("nodes", {}),
+                        }
+
+                    elif res.status_code == 429:
+                        last_exception = LyzrRateLimitError("Lyzr SuperFlow rate limit exceeded (HTTP 429)")
+                        continue
+                    elif 400 <= res.status_code < 500:
+                        raise LyzrRequestError(f"Lyzr request rejected with HTTP {res.status_code}: {res.text}")
+                    else:
+                        last_exception = LyzrServiceError(f"Lyzr service returned server error HTTP {res.status_code}: {res.text}")
+                        continue
+
+            except (httpx.TimeoutException, LyzrTimeoutError) as e:
+                logger.warning(f"Lyzr SuperFlow API request timed out: {e}")
+                last_exception = LyzrTimeoutError(f"Lyzr SuperFlow API execution timed out: {e}")
+                continue
+            except (httpx.ConnectError, httpx.NetworkError, httpx.RequestError) as e:
+                logger.warning(f"Lyzr SuperFlow API connection error: {e}")
+                last_exception = LyzrUnavailableError(f"Lyzr SuperFlow API service unavailable: {e}")
+                continue
+
+        raise last_exception or LyzrUnavailableError("Lyzr SuperFlow API execution failed after retries")
 
     def execute_agent(self, agent_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
         """
@@ -113,31 +135,49 @@ class LyzrSuperFlowClient:
         if not self.api_key or self.api_key in ("MISSING", "INVALID_CREDENTIALS"):
             raise LyzrApiError("LYZR_API_KEY mandatory configuration missing or invalid.")
 
-        # Check prompt injection policy
         prompt_text = str(input_payload.get("prompt", "") or input_payload.get("ocr_text", "") or "")
         if "ignore previous instructions" in prompt_text.lower() or "system prompt:" in prompt_text.lower():
             raise LyzrGovernanceViolationError("LYZR_POLICY_VIOLATION: Prompt injection detected by Lyzr Policy.")
 
         url = f"{self.base_url}/v3/agents/{agent_id}/execute"
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                res = client.post(url, json=input_payload, headers=self._get_headers())
-                if res.status_code == 200:
-                    try:
-                        return res.json()
-                    except Exception as json_err:
-                        raise LyzrInvalidResponseError(f"Lyzr Agent '{agent_id}' returned malformed JSON response") from json_err
-                elif 400 <= res.status_code < 500:
-                    raise LyzrRequestError(f"Lyzr Agent '{agent_id}' request rejected with HTTP {res.status_code}: {res.text}")
-                else:
-                    raise LyzrServiceError(f"Lyzr Agent '{agent_id}' service returned HTTP {res.status_code}: {res.text}")
+        max_retries = settings.lyzr_max_retries
+        timeout_sec = settings.lyzr_request_timeout
+        last_exception = None
 
-        except httpx.TimeoutException as e:
-            logger.error(f"Lyzr Agent '{agent_id}' request timed out: {e}")
-            raise LyzrTimeoutError(f"Lyzr Agent '{agent_id}' timed out: {e}") from e
-        except (httpx.ConnectError, httpx.NetworkError, httpx.RequestError) as e:
-            logger.error(f"Lyzr Agent '{agent_id}' connection error: {e}")
-            raise LyzrUnavailableError(f"Lyzr Agent '{agent_id}' service unavailable: {e}") from e
+        for attempt in range(max_retries + 1):
+            if attempt > 0:
+                backoff_sec = min(2.0, 0.05 * (2 ** attempt))
+                logger.info(f"Retrying Lyzr agent '{agent_id}' execution (attempt {attempt}/{max_retries}) after {backoff_sec}s...")
+                time.sleep(backoff_sec)
+
+            try:
+                with httpx.Client(timeout=timeout_sec) as client:
+                    res = client.post(url, json=input_payload, headers=self._get_headers())
+                    if res.status_code == 200:
+                        try:
+                            return res.json()
+                        except Exception as json_err:
+                            raise LyzrInvalidResponseError(f"Lyzr Agent '{agent_id}' returned malformed JSON response") from json_err
+
+                    elif res.status_code == 429:
+                        last_exception = LyzrRateLimitError(f"Lyzr Agent '{agent_id}' rate limit exceeded (HTTP 429)")
+                        continue
+                    elif 400 <= res.status_code < 500:
+                        raise LyzrRequestError(f"Lyzr Agent '{agent_id}' request rejected with HTTP {res.status_code}: {res.text}")
+                    else:
+                        last_exception = LyzrServiceError(f"Lyzr Agent '{agent_id}' service returned HTTP {res.status_code}: {res.text}")
+                        continue
+
+            except (httpx.TimeoutException, LyzrTimeoutError) as e:
+                logger.warning(f"Lyzr Agent '{agent_id}' request timed out: {e}")
+                last_exception = LyzrTimeoutError(f"Lyzr Agent '{agent_id}' timed out: {e}")
+                continue
+            except (httpx.ConnectError, httpx.NetworkError, httpx.RequestError) as e:
+                logger.warning(f"Lyzr Agent '{agent_id}' connection error: {e}")
+                last_exception = LyzrUnavailableError(f"Lyzr Agent '{agent_id}' service unavailable: {e}")
+                continue
+
+        raise last_exception or LyzrUnavailableError(f"Lyzr Agent '{agent_id}' execution failed after retries")
 
     def verify_webhook_signature(self, body_bytes: bytes, signature_header: str) -> bool:
         """Verifies HMAC-SHA256 webhook callback signatures from Lyzr SuperFlow."""

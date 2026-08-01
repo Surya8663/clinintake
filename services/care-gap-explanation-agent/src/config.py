@@ -1,18 +1,20 @@
-import os
-
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    service_name: str = "care-gap-explanation-agent"
-    service_port: int = 8013
-    log_level: str = "INFO"
+    service_name: str = Field(default="care-gap-explanation-agent")
+    service_port: int = Field(default=8013)
+    log_level: str = Field(default="INFO")
 
-    # LLM / Lyzr Configuration — API key via env var, never hardcoded
-    lyzr_api_key: str = os.getenv("LYZR_API_KEY", "")
-    llm_api_key: str = os.getenv("LYZR_API_KEY", "") or os.getenv("LLM_API_KEY", "") or os.getenv("OPENAI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
-    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o")
-    llm_base_url: str = os.getenv("LLM_BASE_URL", os.getenv("LYZR_BASE_URL", "https://api.lyzr.ai"))
+    # Lyzr Agent Configuration (Required BaseSettings fields - min_length=1 prevents empty strings)
+    lyzr_api_key: str = Field(..., min_length=1)
+    lyzr_base_url: str = Field(..., min_length=1)
+    lyzr_explanation_agent_id: str = Field(..., min_length=1)
+
+    # Execution controls
+    lyzr_request_timeout: float = Field(default=10.0)
+    lyzr_max_retries: int = Field(default=3)
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

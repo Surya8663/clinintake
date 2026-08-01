@@ -1,3 +1,5 @@
+from typing import Dict, List, Set, Tuple
+
 from src.logger import logger
 from src.models import CareGapExplanationResponse, CitationItem, ClinicalDecisionPackage, DocumentSpanItem
 
@@ -11,9 +13,8 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
     Deterministic parsing of temporal gaps, safety flags, and drug interactions.
     Outputs feed INTO the LLM prompt as grounding context.
     """
-    gaps_found: list[str] = []
-    citations: list[CitationItem] = []
-    spans: list[DocumentSpanItem] = []
+    gaps_found: List[str] = []
+    spans: List[DocumentSpanItem] = []
 
     # 1. Parse Temporal Care Gaps
     for gap in package.temporal_care_gaps:
@@ -28,20 +29,7 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
         elif g_status == "insufficient_information":
             gaps_found.append(f"{measure} cannot be determined due to missing screening history.")
 
-    # 2. Parse Guideline Passages & Build Grounded Citations (Strict No-Fabrication Constraint)
-    for passage in package.guideline_passages:
-        citations.append(
-            CitationItem(
-                source_title=passage.get("source", ""),
-                version=passage.get("version", ""),
-                section=passage.get("section", ""),
-                clause_id=passage.get("clause_id", ""),
-                passage_text=passage.get("passage_text", ""),
-                similarity_score=float(passage.get("similarity_score", 1.0)),
-            )
-        )
-
-    # 3. Parse Safety and Interaction Findings
+    # 2. Parse Safety and Interaction Findings
     if package.safety_assessment.get("is_emergency"):
         red_flags = package.safety_assessment.get("red_flags", [])
         for rf in red_flags:
@@ -51,51 +39,55 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
         if di.get("severity") in ["HIGH", "CRITICAL"]:
             gaps_found.append(f"Drug Contraindication ({di.get('severity')}): {di.get('description', '')}")
 
-    return gaps_found, citations, spans
+    return gaps_found, spans
 
 
-def _get_valid_citation_keys(package: ClinicalDecisionPackage) -> set[str]:
-    """Builds the set of valid (source, clause_id) strings from package.guideline_passages."""
-    valid_keys = set()
+def _get_valid_citation_tuples(package: ClinicalDecisionPackage) -> Tuple[Set[Tuple[str, str]], Dict[Tuple[str, str], dict]]:
+    """Builds valid set of (source_title, clause_id) tuples from supplied guideline passages."""
+    valid_tuples = set()
+    passage_by_tuple = {}
+
     for passage in package.guideline_passages:
-        source = passage.get("source", "")
-        clause = passage.get("clause_id", "")
-        if source:
-            valid_keys.add(source.lower().strip())
-        if clause:
-            valid_keys.add(clause.lower().strip())
-    return valid_keys
+        source = (passage.get("source_title", "") or passage.get("source", "")).strip().lower()
+        clause = passage.get("clause_id", "").strip().lower()
+        if source and clause:
+            tup = (source, clause)
+            valid_tuples.add(tup)
+            passage_by_tuple[tup] = passage
+
+    return valid_tuples, passage_by_tuple
 
 
-def _verify_citations(llm_result: dict, valid_keys: set[str]) -> list[str]:
+def _verify_citations(llm_result: dict, valid_tuples: Set[Tuple[str, str]]) -> List[str]:
     """
-    Checks that every citation the LLM references actually exists in the package.
-    Returns list of invalid citation descriptions (empty if all valid).
+    Checks that every citation referenced by LLM matches an exact (source_title, clause_id) tuple
+    belonging to the SAME supplied guideline passage.
     """
     violations = []
-    for cite in llm_result.get("citations_used", []):
-        source = (cite.get("source_title", "") or "").lower().strip()
-        clause = (cite.get("clause_id", "") or "").lower().strip()
-        source_ok = source in valid_keys if source else True
-        clause_ok = clause in valid_keys if clause else True
-        if not source_ok and not clause_ok:
-            violations.append(f"source_title='{cite.get('source_title')}', clause_id='{cite.get('clause_id')}'")
-        elif not source_ok:
-            violations.append(f"source_title='{cite.get('source_title')}' not found in package")
-        elif not clause_ok:
-            violations.append(f"clause_id='{cite.get('clause_id')}' not found in package")
+    citations_used = llm_result.get("citations_used", [])
+
+    for cite in citations_used:
+        source = (cite.get("source_title", "") or cite.get("source", "")).strip().lower()
+        clause = (cite.get("clause_id", "") or "").strip().lower()
+
+        if not source or not clause or (source, clause) not in valid_tuples:
+            violations.append(
+                f"Invalid citation tuple: (source_title='{cite.get('source_title')}', clause_id='{cite.get('clause_id')}') "
+                f"does not exist together in any single supplied guideline passage."
+            )
+
     return violations
 
 
 def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapExplanationResponse:
     """
-    Generates grounded care gap explanations using LLM reasoning with citation verification.
+    Generates grounded care gap explanations using LLM reasoning with strict atomic tuple citation verification.
     """
     from src.llm_client import call_llm_explanation
 
     logger.info(f"Generating care gap explanation for document_id={package.document_id}")
 
-    gaps_found, citations, spans = _parse_deterministic_findings(package)
+    gaps_found, spans = _parse_deterministic_findings(package)
 
     # Rule C5: Empty guideline evidence must return exactly "Insufficient guideline evidence"
     if not package.guideline_passages:
@@ -106,10 +98,10 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
             care_gaps_found=gaps_found,
             cited_guideline_passages=[],
             document_evidence_spans=spans,
-            generation_mode="llm",
+            generation_mode="insufficient_evidence",
         )
 
-    valid_keys = _get_valid_citation_keys(package)
+    valid_tuples, passage_by_tuple = _get_valid_citation_tuples(package)
     guideline_passages_raw = list(package.guideline_passages or [])
 
     # Call LLM for grounded explanation
@@ -122,19 +114,17 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
         patient_id=package.patient_id,
     )
 
-    # Verify LLM citations against package guideline passages
-    violations = _verify_citations(llm_result, valid_keys)
+    # Verify LLM citations against valid passage tuples
+    violations = _verify_citations(llm_result, valid_tuples)
 
     if violations:
         logger.warning(f"LLM citation verification failed (attempt 1) for doc_id={package.document_id}: {violations}")
 
         correction = (
-            f"Your previous response contained {len(violations)} citation(s) that do NOT exist in the provided "
-            f"Clinical Decision Package: {'; '.join(violations)}. "
-            f"You MUST only cite sources from the provided guideline_passages. "
-            f"The valid source_titles are: {[p.get('source', '') for p in guideline_passages_raw]}. "
-            f"The valid clause_ids are: {[p.get('clause_id', '') for p in guideline_passages_raw]}. "
-            f"Regenerate the explanation using ONLY these citations."
+            f"Your previous response contained {len(violations)} citation(s) that do NOT match any single guideline passage: "
+            f"{'; '.join(violations)}. "
+            f"You MUST only cite exact (source_title, clause_id) tuples from the provided guideline_passages. "
+            f"Regenerate the explanation using ONLY valid citations."
         )
 
         llm_result = call_llm_explanation(
@@ -147,7 +137,7 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
             correction_instruction=correction,
         )
 
-        retry_violations = _verify_citations(llm_result, valid_keys)
+        retry_violations = _verify_citations(llm_result, valid_tuples)
         if retry_violations:
             logger.error(f"LLM citation verification failed AGAIN (attempt 2) for doc_id={package.document_id}: {retry_violations}.")
             raise GroundingVerificationError(f"Grounding verification failed: LLM generated unsupported citations: {retry_violations}")
@@ -156,11 +146,32 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
     if not llm_summary:
         raise GroundingVerificationError("LLM response did not contain an explanation summary.")
 
+    # Populate cited_guideline_passages with ONLY passages actually referenced by the verified LLM output
+    cited_items: List[CitationItem] = []
+    used_tuples = set()
+    for cite in llm_result.get("citations_used", []):
+        src = (cite.get("source_title", "") or cite.get("source", "")).strip().lower()
+        clause = (cite.get("clause_id", "") or "").strip().lower()
+        tup = (src, clause)
+        if tup in passage_by_tuple and tup not in used_tuples:
+            used_tuples.add(tup)
+            p = passage_by_tuple[tup]
+            cited_items.append(
+                CitationItem(
+                    source_title=p.get("source_title", p.get("source", "")),
+                    version=p.get("version", ""),
+                    section=p.get("section", ""),
+                    clause_id=p.get("clause_id", ""),
+                    passage_text=p.get("passage_text", ""),
+                    similarity_score=float(p.get("similarity_score", 1.0)),
+                )
+            )
+
     return CareGapExplanationResponse(
         document_id=package.document_id,
         explanation_summary=llm_summary,
         care_gaps_found=gaps_found,
-        cited_guideline_passages=citations,
+        cited_guideline_passages=cited_items,
         document_evidence_spans=spans,
         generation_mode="llm",
     )

@@ -16,16 +16,18 @@ class OrchestratorSettings(BaseSettings):
     kafka_bootstrap_servers: str = Field(default="localhost:9092")
     audit_topic: str = Field(default="audit-events")
 
-    # Lyzr SuperFlow & Agent Governance Configuration (Required secrets - no runtime defaults)
-    lyzr_api_key: str = Field(...)
-    lyzr_base_url: str = Field(...)
-    lyzr_superflow_id: str = Field(...)
-    lyzr_extraction_agent_id: str = Field(...)
-    lyzr_explanation_agent_id: str = Field(...)
-    lyzr_referral_agent_id: str = Field(...)
-    lyzr_policy_prompt_injection_id: str = Field(...)
-    lyzr_policy_grounding_id: str = Field(...)
-    lyzr_webhook_secret: str = Field(...)
+    # Lyzr SuperFlow & Agent Governance Configuration (Required BaseSettings fields - min_length=1 prevents empty strings)
+    lyzr_api_key: str = Field(..., min_length=1)
+    lyzr_base_url: str = Field(..., min_length=1)
+    lyzr_superflow_id: str = Field(..., min_length=1)
+    lyzr_extraction_agent_id: str = Field(..., min_length=1)
+    lyzr_explanation_agent_id: str = Field(..., min_length=1)
+    lyzr_referral_agent_id: str = Field(..., min_length=1)
+    lyzr_webhook_secret: str = Field(..., min_length=1)
+
+    # Lyzr HTTP Client execution controls
+    lyzr_request_timeout: float = Field(default=10.0)
+    lyzr_max_retries: int = Field(default=3)
 
     # Real Downstream Microservice URLs (Internal local-development defaults, environment-overridable)
     document_gateway_url: str = Field(default="http://localhost:8000")
@@ -56,4 +58,3 @@ class OrchestratorSettings(BaseSettings):
 
 
 settings = OrchestratorSettings()
-

@@ -1,18 +1,24 @@
-from typing import Any
+from typing import Any, List, Optional, Tuple
 
 from src.config import settings
 from src.logger import logger
 from src.models import ExtractionData, GroundedDiagnosis, GroundedField, GroundedLabResult, GroundedMedication
 
 
-def locate_bbox_for_quote(quote: str, ocr_words: list[dict[str, Any]] | None) -> list[int]:
-    """Finds exact spatial bounding box [x_min, y_min, x_max, y_max] matching the literal source quote."""
-    if not ocr_words or not quote:
-        return [0, 0, 100, 20]
+def locate_bbox_for_quote(quote: str, ocr_words: Optional[List[dict[str, Any]]]) -> Tuple[Optional[List[int]], str]:
+    """
+    Finds spatial bounding box [x_min, y_min, x_max, y_max] matching the literal quote from OCR words.
+    Returns (bbox, grounding_status). Never returns fake/fallback static coordinates.
+    """
+    if not ocr_words:
+        return None, "spatial_data_unavailable"
+
+    if not quote or not quote.strip():
+        return None, "quote_not_located"
 
     quote_tokens = quote.lower().split()
     if not quote_tokens:
-        return [0, 0, 100, 20]
+        return None, "quote_not_located"
 
     for i in range(len(ocr_words) - len(quote_tokens) + 1):
         match = True
@@ -28,90 +34,152 @@ def locate_bbox_for_quote(quote: str, ocr_words: list[dict[str, Any]] | None) ->
             min_y = min([b.get("y_min", 0) for b in bboxes])
             max_x = max([b.get("x_max", 0) for b in bboxes])
             max_y = max([b.get("y_max", 0) for b in bboxes])
-            return [min_x, min_y, max_x, max_y]
+            return [min_x, min_y, max_x, max_y], "grounded"
 
-    return [40, 50, 250, 70]
+    return None, "quote_not_located"
 
 
-def create_grounded_field(raw_value: str, literal_quote: str, confidence: float, ocr_words: list[dict[str, Any]] | None = None, custom_threshold: float | None = None) -> GroundedField:
-    """Creates a grounded field. If confidence is below threshold, value MUST be 'Incomplete'."""
+def create_grounded_field(
+    raw_value: str,
+    literal_quote: str,
+    confidence: float,
+    ocr_text: str = "",
+    ocr_words: Optional[List[dict[str, Any]]] = None,
+    custom_threshold: Optional[float] = None,
+) -> GroundedField:
+    """Creates a grounded field with spatial bounding box computation or null/unsupported status."""
     threshold = custom_threshold if custom_threshold is not None else settings.confidence_threshold
 
-    bbox = locate_bbox_for_quote(literal_quote, ocr_words)
+    bbox, grounding_status = locate_bbox_for_quote(literal_quote, ocr_words)
+
+    # Validate literal quote substring match against OCR text if text is provided
+    if raw_value and raw_value.lower() not in ("unknown", "pat-unknown", "incomplete"):
+        if ocr_text and literal_quote and literal_quote not in ocr_text:
+            grounding_status = "quote_unsupported"
 
     final_value = raw_value
     if confidence < threshold or not raw_value or raw_value.lower() in ("unknown", "pat-unknown", "incomplete"):
         logger.info(f"Field confidence {confidence} is below threshold {threshold} or value is unknown. Marking value as 'Incomplete'.")
         final_value = "Incomplete"
 
-    return GroundedField(value=final_value, literal_quote=literal_quote, bbox=bbox, confidence=confidence)
+    return GroundedField(value=final_value, literal_quote=literal_quote, bbox=bbox, grounding_status=grounding_status, confidence=confidence)
 
 
-def perform_quote_grounded_extraction(ocr_text: str, ocr_words: list[dict[str, Any]] | None = None, threshold_override: float | None = None) -> ExtractionData:
-    """Extracts clinical entities using LLM-based structured extraction with quote grounding."""
+def perform_quote_grounded_extraction(ocr_text: str, ocr_words: Optional[List[dict[str, Any]]] = None, threshold_override: Optional[float] = None) -> ExtractionData:
+    """Extracts clinical entities using LLM-based structured extraction with strict quote grounding."""
     from src.llm_client import call_llm_extraction
 
     text = ocr_text or ""
     threshold = threshold_override if threshold_override is not None else settings.confidence_threshold
 
     if not text.strip():
-        return ExtractionData(patient_id=create_grounded_field("", "", 0.0, ocr_words, threshold), diagnoses=[], medications=[], labs=[])
+        return ExtractionData(
+            patient_id=create_grounded_field("", "", 0.0, ocr_text=text, ocr_words=ocr_words, custom_threshold=threshold),
+            diagnoses=[],
+            medications=[],
+            labs=[],
+        )
 
     # Call the real LLM boundary for structured extraction
     llm_result = call_llm_extraction(ocr_text=text, ocr_words=ocr_words)
 
-    # --- Map LLM output through existing create_grounded_field() ---
+    # --- Map LLM output through create_grounded_field() ---
 
     # 1. Patient ID
     pat_data = llm_result.get("patient_id", {})
     pat_field = create_grounded_field(
-        raw_value=pat_data.get("value", ""), literal_quote=pat_data.get("literal_quote", ""), confidence=float(pat_data.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+        raw_value=pat_data.get("value", ""),
+        literal_quote=pat_data.get("literal_quote", ""),
+        confidence=float(pat_data.get("confidence", 0.0)),
+        ocr_text=text,
+        ocr_words=ocr_words,
+        custom_threshold=threshold,
     )
 
     # 2. Diagnoses
-    diagnoses: list[GroundedDiagnosis] = []
+    diagnoses: List[GroundedDiagnosis] = []
     for diag_data in llm_result.get("diagnoses", []):
         name_d = diag_data.get("name", {})
         icd_d = diag_data.get("icd10_code", {})
         name_field = create_grounded_field(
-            raw_value=name_d.get("value", ""), literal_quote=name_d.get("literal_quote", ""), confidence=float(name_d.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=name_d.get("value", ""),
+            literal_quote=name_d.get("literal_quote", ""),
+            confidence=float(name_d.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         icd_field = create_grounded_field(
-            raw_value=icd_d.get("value", ""), literal_quote=icd_d.get("literal_quote", ""), confidence=float(icd_d.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=icd_d.get("value", ""),
+            literal_quote=icd_d.get("literal_quote", ""),
+            confidence=float(icd_d.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         diagnoses.append(GroundedDiagnosis(name=name_field, icd10_code=icd_field))
 
     # 3. Medications
-    medications: list[GroundedMedication] = []
+    medications: List[GroundedMedication] = []
     for med_data in llm_result.get("medications", []):
         name_m = med_data.get("name", {})
         rx_m = med_data.get("rxnorm_code", {})
         dosage_m = med_data.get("dosage", {})
         name_field = create_grounded_field(
-            raw_value=name_m.get("value", ""), literal_quote=name_m.get("literal_quote", ""), confidence=float(name_m.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=name_m.get("value", ""),
+            literal_quote=name_m.get("literal_quote", ""),
+            confidence=float(name_m.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         rx_field = create_grounded_field(
-            raw_value=rx_m.get("value", ""), literal_quote=rx_m.get("literal_quote", ""), confidence=float(rx_m.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=rx_m.get("value", ""),
+            literal_quote=rx_m.get("literal_quote", ""),
+            confidence=float(rx_m.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         dosage_field = create_grounded_field(
-            raw_value=dosage_m.get("value", ""), literal_quote=dosage_m.get("literal_quote", ""), confidence=float(dosage_m.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=dosage_m.get("value", ""),
+            literal_quote=dosage_m.get("literal_quote", ""),
+            confidence=float(dosage_m.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         medications.append(GroundedMedication(name=name_field, rxnorm_code=rx_field, dosage=dosage_field))
 
     # 4. Lab Results
-    labs: list[GroundedLabResult] = []
+    labs: List[GroundedLabResult] = []
     for lab_data in llm_result.get("labs", []):
         name_l = lab_data.get("name", {})
         loinc_l = lab_data.get("loinc_code", {})
         val_l = lab_data.get("value", {})
         name_field = create_grounded_field(
-            raw_value=name_l.get("value", ""), literal_quote=name_l.get("literal_quote", ""), confidence=float(name_l.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=name_l.get("value", ""),
+            literal_quote=name_l.get("literal_quote", ""),
+            confidence=float(name_l.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         loinc_field = create_grounded_field(
-            raw_value=loinc_l.get("value", ""), literal_quote=loinc_l.get("literal_quote", ""), confidence=float(loinc_l.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=loinc_l.get("value", ""),
+            literal_quote=loinc_l.get("literal_quote", ""),
+            confidence=float(loinc_l.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         val_field = create_grounded_field(
-            raw_value=val_l.get("value", ""), literal_quote=val_l.get("literal_quote", ""), confidence=float(val_l.get("confidence", 0.0)), ocr_words=ocr_words, custom_threshold=threshold
+            raw_value=val_l.get("value", ""),
+            literal_quote=val_l.get("literal_quote", ""),
+            confidence=float(val_l.get("confidence", 0.0)),
+            ocr_text=text,
+            ocr_words=ocr_words,
+            custom_threshold=threshold,
         )
         labs.append(GroundedLabResult(name=name_field, loinc_code=loinc_field, value=val_field))
 

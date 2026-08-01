@@ -1,50 +1,74 @@
-import os
 from unittest.mock import MagicMock, patch
 
 import httpx
+from pydantic import ValidationError
 import pytest
 
-os.environ["LYZR_API_KEY"] = "test_lyzr_api_key_2026"
-os.environ["LLM_API_KEY"] = "test_llm_api_key_2026"
-os.environ["SAFETY_SUB_AGENT_URL"] = "http://localhost:8011"
-
-from src.extractor import create_grounded_field, perform_quote_grounded_extraction
-from src.llm_client import call_llm_extraction
-
-SAMPLE_CLINICAL_TEXT = (
-    "Patient ID: PAT-10552\n"
-    "Name: Maria Gonzalez   DOB: 1974-03-15\n"
-    "Diagnosis: Type 2 Diabetes Mellitus (ICD-10: E11.65) - High Confidence\n"
-    "Medication: Metformin 500mg oral twice daily (RxNorm: 861004)\n"
-    "Lab: HbA1c 8.2 % (LOINC: 4548-4)\n"
+from src.llm_client import (
+    LLMInvalidResponseError,
+    LLMRequestError,
+    LLMServiceError,
+    LLMTimeoutError,
+    LLMUnavailableError,
+    call_llm_extraction,
 )
-
-SAMPLE_OCR_WORDS = [
-    {"text": "Patient", "bbox": {"x_min": 10, "y_min": 20, "x_max": 70, "y_max": 35}},
-    {"text": "ID:", "bbox": {"x_min": 75, "y_min": 20, "x_max": 95, "y_max": 35}},
-    {"text": "PAT-10552", "bbox": {"x_min": 100, "y_min": 20, "x_max": 170, "y_max": 35}},
-]
+from src.models import LyzrFieldResponse
 
 
-def test_extraction_llm_boundary_payload_sent():
-    """Verifies prompt and request payload sent to external Lyzr/LLM boundary."""
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = {
-        "response": {
-            "patient_id": {"value": "PAT-10552", "literal_quote": "Patient ID: PAT-10552", "confidence": 0.95},
-            "diagnoses": [{"name": {"value": "Type 2 Diabetes Mellitus", "literal_quote": "Type 2 Diabetes Mellitus", "confidence": 0.90}, "icd10_code": {"value": "E11.65", "literal_quote": "ICD-10: E11.65", "confidence": 0.90}}],
-            "medications": [],
-            "labs": [],
-        }
+def test_confidence_below_0_or_above_1_rejected():
+    """Condition 6: Confidence below 0.0 or above 1.0 is rejected by schema validator."""
+    with pytest.raises(ValidationError):
+        LyzrFieldResponse(value="Test", literal_quote="Test", confidence=1.5)
+
+    with pytest.raises(ValidationError):
+        LyzrFieldResponse(value="Test", literal_quote="Test", confidence=-0.1)
+
+
+def test_malformed_nested_extraction_data_rejected():
+    """Condition 7: Malformed nested extraction structure raises LLMInvalidResponseError."""
+    ocr_text = "Patient ID: PAT-123. Diagnosis: Hypertension."
+    malformed_json_response = {
+        "patient_id": "PAT-123",  # Invalid: Should be dict with value, literal_quote, confidence
+        "diagnoses": "Hypertension",  # Invalid: Should be list of dicts
     }
 
-    with patch.object(httpx.Client, "post", return_value=mock_resp) as mock_post:
-        res = call_llm_extraction(ocr_text=SAMPLE_CLINICAL_TEXT, ocr_words=SAMPLE_OCR_WORDS)
-        assert res["patient_id"]["value"] == "PAT-10552"
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"response": malformed_json_response}
 
-        mock_post.assert_called_once()
-        sent_body = mock_post.call_args.kwargs["json"]
-        assert "prompt" in sent_body
-        assert "system_prompt" in sent_body
-        assert "PAT-10552" in sent_body["prompt"]
+    with patch("httpx.Client.post", return_value=mock_resp):
+        with pytest.raises(LLMInvalidResponseError):
+            call_llm_extraction(ocr_text=ocr_text)
+
+
+def test_http_429_and_5xx_retry_only_up_to_configured_limit():
+    """Condition 8: HTTP 429 and 5xx errors retry up to lyzr_max_retries before failing."""
+    ocr_text = "Patient ID: PAT-100"
+
+    mock_500_resp = MagicMock()
+    mock_500_resp.status_code = 500
+    mock_500_resp.text = "Internal Server Error"
+
+    with patch("httpx.Client.post", return_value=mock_500_resp) as mock_post:
+        with patch("time.sleep"):  # Speed up tests
+            with pytest.raises(LLMServiceError):
+                call_llm_extraction(ocr_text=ocr_text)
+
+    # Initial attempt + 2 retries (lyzr_max_retries=2 in conftest) = 3 total calls
+    assert mock_post.call_count == 3
+
+
+def test_http_4xx_is_not_retried():
+    """Condition 9: HTTP 400 client request error is NOT retried."""
+    ocr_text = "Patient ID: PAT-100"
+
+    mock_400_resp = MagicMock()
+    mock_400_resp.status_code = 400
+    mock_400_resp.text = "Bad Request"
+
+    with patch("httpx.Client.post", return_value=mock_400_resp) as mock_post:
+        with pytest.raises(LLMRequestError):
+            call_llm_extraction(ocr_text=ocr_text)
+
+    # Must fail immediately after 1 attempt
+    assert mock_post.call_count == 1

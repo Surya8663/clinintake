@@ -1,9 +1,8 @@
 import glob
 import json
-import os
 
 for filepath in glob.glob("services/**/frontend/package.json", recursive=True):
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         data = json.load(f)
     if "scripts" not in data:
         data["scripts"] = {}

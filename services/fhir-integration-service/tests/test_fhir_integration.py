@@ -95,22 +95,14 @@ def test_idempotency_deduplication_suppresses_duplicate_transaction_as_no_op():
     assert data2["is_duplicate"] is True
     assert data2["fhir_bundle_id"] == bundle_id_1
 
+
 def test_missing_auth_header_fails():
-    payload = {
-        "document_id": "DOC-NOAUTH",
-        "patient_id": "PAT-NOAUTH",
-        "idempotency_key": "IDEM-NOAUTH",
-        "fhir_resources": []
-    }
+    payload = {"document_id": "DOC-NOAUTH", "patient_id": "PAT-NOAUTH", "idempotency_key": "IDEM-NOAUTH", "fhir_resources": []}
     response = client.post("/fhir/write-transaction", json=payload)
     assert response.status_code == 401
 
+
 def test_invalid_auth_header_fails():
-    payload = {
-        "document_id": "DOC-BADAUTH",
-        "patient_id": "PAT-BADAUTH",
-        "idempotency_key": "IDEM-BADAUTH",
-        "fhir_resources": []
-    }
+    payload = {"document_id": "DOC-BADAUTH", "patient_id": "PAT-BADAUTH", "idempotency_key": "IDEM-BADAUTH", "fhir_resources": []}
     response = client.post("/fhir/write-transaction", json=payload, headers={"Authorization": "Bearer bad_token"})
     assert response.status_code == 401

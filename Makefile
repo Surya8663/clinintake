@@ -31,11 +31,11 @@ test-unit: ## Run pytest unit tests for all services
 	@for dir in services/*/tests; do \
 		if [ -d "$$dir" ]; then \
 			echo "── Testing $$(dirname $$dir) ──"; \
-			$(PYTEST) "$$dir" -x -q 2>&1 || true; \
+			$(PYTEST) "$$dir" -x -q 2>&1 || exit 1; \
 		fi \
 	done
 	@echo "── E2E tests ──"
-	$(PYTEST) tests/ -x -q 2>&1 || true
+	$(PYTEST) tests/ -x -q 2>&1
 
 test-integration: ## Run integration tests (requires running infrastructure)
 	@echo "Integration tests require running Docker Compose services."
@@ -44,14 +44,14 @@ test-integration: ## Run integration tests (requires running infrastructure)
 	@echo "Then run:  $(PYTEST) tests/e2e/ -v"
 
 security-scan: ## Scan for hardcoded secrets in source code
-	$(PYTHON) scripts/quality/scan_secrets.py
+	gitleaks detect --source . --no-git --redact --verbose
 
 contract-check: ## Verify Pydantic settings models are importable (no startup crash)
 	@echo "Verifying Pydantic settings contracts..."
 	@for cfg in services/*/src/config.py; do \
 		svc=$$(echo $$cfg | cut -d/ -f2); \
 		echo -n "  $$svc: "; \
-		$(PYTHON) -c "import sys; sys.path.insert(0, '$$(dirname $$cfg)'); exec(open('$$cfg').read())" 2>&1 && echo "OK" || echo "FAIL"; \
+		$(PYTHON) -c "import sys; sys.path.insert(0, '$$(dirname $$cfg)'); exec(open('$$cfg').read())" 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
 	done
 
 compose-config: ## Validate Docker Compose config and list services

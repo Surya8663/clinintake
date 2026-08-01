@@ -5,19 +5,13 @@ from src.logger import logger
 from src.models import TerminologyMapRequest, TerminologyMapResponse
 from src.resolver import resolve_terminology
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Clinical Terminology Normalization Service (RxNorm, LOINC, SNOMED CT)",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Clinical Terminology Normalization Service (RxNorm, LOINC, SNOMED CT)", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name,
-        "confidence_threshold": settings.confidence_threshold
-    }
+    return {"status": "ok", "service": settings.service_name, "confidence_threshold": settings.confidence_threshold}
+
 
 @app.post("/terminology/map", response_model=TerminologyMapResponse)
 async def map_clinical_term(request: TerminologyMapRequest):

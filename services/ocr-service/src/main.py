@@ -9,15 +9,13 @@ from src.logger import logger
 from src.models import OCRResponse
 from src.ocr_engine import process_image_with_tesseract, process_pdf_with_pypdf
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Spatial Optical Character Recognition (OCR) Service",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Spatial Optical Character Recognition (OCR) Service", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": settings.service_name}
+
 
 @app.post("/ocr/process", response_model=OCRResponse)
 async def process_document(file: UploadFile = File(...)):
@@ -45,9 +43,4 @@ async def process_document(file: UploadFile = File(...)):
 
     full_text = "\n\n".join([p.text for p in pages])
 
-    return OCRResponse(
-        document_id=doc_id,
-        pages=pages,
-        full_text=full_text,
-        engine_used=engine_used
-    )
+    return OCRResponse(document_id=doc_id, pages=pages, full_text=full_text, engine_used=engine_used)

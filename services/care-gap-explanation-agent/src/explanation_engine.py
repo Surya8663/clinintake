@@ -1,4 +1,3 @@
-
 from src.logger import logger
 from src.models import CareGapExplanationResponse, CitationItem, ClinicalDecisionPackage, DocumentSpanItem
 
@@ -27,14 +26,16 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
 
     # 2. Parse Guideline Passages & Build Grounded Citations (Strict No-Fabrication Constraint)
     for passage in package.guideline_passages:
-        citations.append(CitationItem(
-            source_title=passage.get("source", "USPSTF Guideline"),
-            version=passage.get("version", "2021"),
-            section=passage.get("section", "Recommendation"),
-            clause_id=passage.get("clause_id", "CLAUSE-01"),
-            passage_text=passage.get("passage_text", ""),
-            similarity_score=passage.get("similarity_score", 1.0)
-        ))
+        citations.append(
+            CitationItem(
+                source_title=passage.get("source", "USPSTF Guideline"),
+                version=passage.get("version", "2021"),
+                section=passage.get("section", "Recommendation"),
+                clause_id=passage.get("clause_id", "CLAUSE-01"),
+                passage_text=passage.get("passage_text", ""),
+                similarity_score=passage.get("similarity_score", 1.0),
+            )
+        )
 
     # 3. Parse Safety and Interaction Findings
     if package.safety_assessment.get("is_emergency"):
@@ -52,10 +53,7 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
 def _build_deterministic_summary(gaps_found: list[str]) -> str:
     """Builds the deterministic f-string summary (used as labeled fallback only)."""
     if gaps_found:
-        return (
-            f"Clinical Decision Package analysis identified {len(gaps_found)} key clinical care gap(s) or safety priority item(s): "
-            + "; ".join(gaps_found)
-        )
+        return f"Clinical Decision Package analysis identified {len(gaps_found)} key clinical care gap(s) or safety priority item(s): " + "; ".join(gaps_found)
     return "Clinical Decision Package analysis completed: No open care gaps or clinical safety red flags identified."
 
 
@@ -133,10 +131,7 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
         violations = _verify_citations(llm_result, valid_keys)
 
         if violations:
-            logger.warning(
-                f"LLM citation verification failed (attempt 1) for doc_id={package.document_id}: "
-                f"{len(violations)} invalid citation(s): {violations}"
-            )
+            logger.warning(f"LLM citation verification failed (attempt 1) for doc_id={package.document_id}: " f"{len(violations)} invalid citation(s): {violations}")
 
             # Retry once with explicit correction
             correction = (
@@ -161,10 +156,7 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
             # Verify retry
             retry_violations = _verify_citations(llm_result, valid_keys)
             if retry_violations:
-                logger.error(
-                    f"LLM citation verification failed AGAIN (attempt 2) for doc_id={package.document_id}: "
-                    f"{retry_violations}. Falling back to deterministic summary."
-                )
+                logger.error(f"LLM citation verification failed AGAIN (attempt 2) for doc_id={package.document_id}: " f"{retry_violations}. Falling back to deterministic summary.")
                 return CareGapExplanationResponse(
                     document_id=package.document_id,
                     explanation_summary=deterministic_summary,

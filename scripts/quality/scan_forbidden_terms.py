@@ -6,32 +6,43 @@ and fixed signature strings in runtime (non-test) code.
 
 Exit code 0 = clean, 1 = findings.
 """
+
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 FORBIDDEN_PATTERNS = [
-    (r'\bmock\b', "Forbidden term: 'mock' in runtime code"),
-    (r'\bdummy\b', "Forbidden term: 'dummy' in runtime code"),
-    (r'\bfake\b', "Forbidden term: 'fake' in runtime code"),
-    (r'\bdemo\b', "Forbidden term: 'demo' in runtime code"),
-    (r'\bcanned\b', "Forbidden term: 'canned' in runtime code"),
-    (r'\bsample_patient\b', "Fabricated patient record"),
-    (r'\bfallback.*record\b', "Fabricated fallback record"),
-    (r'\bdefault.*entry\b', "Fabricated default entry"),
+    (r"\bmock\b", "Forbidden term: 'mock' in runtime code"),
+    (r"\bdummy\b", "Forbidden term: 'dummy' in runtime code"),
+    (r"\bfake\b", "Forbidden term: 'fake' in runtime code"),
+    (r"\bdemo\b", "Forbidden term: 'demo' in runtime code"),
+    (r"\bcanned\b", "Forbidden term: 'canned' in runtime code"),
+    (r"\bsample_patient\b", "Fabricated patient record"),
+    (r"\bfallback.*record\b", "Fabricated fallback record"),
+    (r"\bdefault.*entry\b", "Fabricated default entry"),
     (r'"SIG-ECDSA-[^"]*"', "Hardcoded fixed signature string"),
 ]
 
 EXCLUDE_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv",
-    "dist", "build", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
     "scripts",  # Allow quality scripts to reference these terms
 }
 
 EXCLUDE_FILES = {
-    ".env.example", "remediation-baseline.md", "repository-inventory.md",
+    ".env.example",
+    "remediation-baseline.md",
+    "repository-inventory.md",
 }
 
 INCLUDE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".jsx"}

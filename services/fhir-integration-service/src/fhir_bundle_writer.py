@@ -18,24 +18,12 @@ def assemble_fhir_r4_transaction_bundle(document_id: str, patient_id: str, fhir_
         res_id = res.get("id") or f"{resource_type.lower()}-{uuid.uuid4().hex[:6]}"
         res["id"] = res_id
 
-        entries.append({
-            "fullUrl": f"urn:uuid:{uuid.uuid4()}",
-            "resource": res,
-            "request": {
-                "method": "POST",
-                "url": resource_type
-            }
-        })
+        entries.append({"fullUrl": f"urn:uuid:{uuid.uuid4()}", "resource": res, "request": {"method": "POST", "url": resource_type}})
 
-    bundle = {
-        "resourceType": "Bundle",
-        "id": bundle_id,
-        "type": "transaction",
-        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-        "entry": entries
-    }
+    bundle = {"resourceType": "Bundle", "id": bundle_id, "type": "transaction", "timestamp": datetime.datetime.utcnow().isoformat() + "Z", "entry": entries}
 
     return bundle
+
 
 async def execute_fhir_transaction(bundle: dict[str, Any]) -> tuple[str, list[str]]:
     """
@@ -45,12 +33,7 @@ async def execute_fhir_transaction(bundle: dict[str, Any]) -> tuple[str, list[st
     bundle_id = bundle.get("id", str(uuid.uuid4()))
     references = []
 
-    headers = {
-        "Content-Type": "application/fhir+json",
-        "X-Client-ID": settings.ehr_client_id,
-        "X-Client-Secret": settings.ehr_client_secret,
-        "Authorization": f"Bearer {settings.ehr_api_key}"
-    }
+    headers = {"Content-Type": "application/fhir+json", "X-Client-ID": settings.ehr_client_id, "X-Client-Secret": settings.ehr_client_secret, "Authorization": f"Bearer {settings.ehr_api_key}"}
 
     try:
         async with httpx.AsyncClient(timeout=0.3) as client:

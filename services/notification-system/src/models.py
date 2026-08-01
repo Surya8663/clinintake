@@ -8,10 +8,12 @@ class AlertDispatchRequest(BaseModel):
     channels: list[str] = Field(default_factory=lambda: ["SMS", "EMAIL", "WEBHOOK"])
     alert_message: str
 
+
 class ChannelDispatchStatus(BaseModel):
     channel: str
     status: str = Field("SENT", description="'SENT', 'FAILED'")
     target_destination: str
+
 
 class AlertDispatchResponse(BaseModel):
     document_id: str

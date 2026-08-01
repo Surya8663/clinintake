@@ -9,10 +9,12 @@ class ReferralDraftRequest(BaseModel):
     target_specialty: str | None = Field("Gastroenterology", description="Specialty targeted for referral")
     clinical_decision_package: dict[str, Any] = Field(default_factory=dict, description="Structured Clinical Decision Package")
 
+
 class GroundedEvidenceItem(BaseModel):
     source_quote: str
     section: str
     clause_id: str | None = None
+
 
 class ReferralDraftResponse(BaseModel):
     document_id: str

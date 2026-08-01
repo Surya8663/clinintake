@@ -25,7 +25,7 @@ class ClamAVScanner:
             chunk_size = 8192
             offset = 0
             while offset < len(file_bytes):
-                chunk = file_bytes[offset:offset+chunk_size]
+                chunk = file_bytes[offset : offset + chunk_size]
                 length_prefix = struct.pack("!I", len(chunk))
                 s.sendall(length_prefix)
                 s.sendall(chunk)

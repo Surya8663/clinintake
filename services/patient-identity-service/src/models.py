@@ -7,6 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 class Base(DeclarativeBase):
     pass
 
+
 class Patient(Base):
     __tablename__ = "patients"
 
@@ -16,6 +17,7 @@ class Patient(Base):
     date_of_birth: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC))
+
 
 class QuarantineRecord(Base):
     __tablename__ = "quarantine_queue"

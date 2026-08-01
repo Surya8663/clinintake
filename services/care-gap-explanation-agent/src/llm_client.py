@@ -70,11 +70,7 @@ def call_llm_explanation(
     lyzr_url = f"{getattr(settings, 'lyzr_base_url', 'https://api.lyzr.ai')}/v3/agents/agent_exp_caregap_v3/execute"
     try:
         with httpx.Client(timeout=10.0) as client:
-            res = client.post(
-                lyzr_url,
-                json={"prompt": user_prompt, "system_prompt": EXPLANATION_SYSTEM_PROMPT},
-                headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"}
-            )
+            res = client.post(lyzr_url, json={"prompt": user_prompt, "system_prompt": EXPLANATION_SYSTEM_PROMPT}, headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"})
             if res.status_code == 200:
                 raw_data = res.json()
                 if "response" in raw_data and isinstance(raw_data["response"], dict):
@@ -86,13 +82,7 @@ def call_llm_explanation(
 
     citations = []
     for g in guideline_passages:
-        citations.append({
-            "source_title": g.get("source_title", g.get("source", "USPSTF")),
-            "clause_id": g.get("clause_id", "CLAUSE-01")
-        })
+        citations.append({"source_title": g.get("source_title", g.get("source", "USPSTF")), "clause_id": g.get("clause_id", "CLAUSE-01")})
 
     explanation_text = f"Clinical care gaps identified for document {document_id}: " + "; ".join(care_gaps_found if care_gaps_found else ["No active care gaps found"]) + "."
-    return {
-        "explanation_summary": explanation_text,
-        "citations_used": citations
-    }
+    return {"explanation_summary": explanation_text, "citations_used": citations}

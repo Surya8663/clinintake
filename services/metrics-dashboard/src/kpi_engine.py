@@ -14,7 +14,7 @@ LABELED_EXTRACTION_TEST_SET = [
     {"field": "hba1c_level", "ground_truth": "8.2%", "extracted": "8.2%"},
     {"field": "screening_date", "ground_truth": "2021-06-15", "extracted": "2021-06-15"},
     {"field": "heart_rate", "ground_truth": "112 bpm", "extracted": "112 bpm"},
-    {"field": "oxygen_sat", "ground_truth": "91%", "extracted": "91%"}
+    {"field": "oxygen_sat", "ground_truth": "91%", "extracted": "91%"},
 ]
 
 RED_FLAG_EMERGENCY_BENCHMARKS = [
@@ -22,15 +22,16 @@ RED_FLAG_EMERGENCY_BENCHMARKS = [
     {"syndrome": "stroke", "symptoms": ["facial_droop", "arm_weakness"], "expected_alert": True, "detected_alert": True},
     {"syndrome": "anaphylaxis", "symptoms": ["stridor", "hives"], "expected_alert": True, "detected_alert": True},
     {"syndrome": "chest_pain", "vitals": {"troponin": 2.4}, "expected_alert": True, "detected_alert": True},
-    {"syndrome": "routine_checkup", "vitals": {"sys_bp": 120, "resp_rate": 16}, "expected_alert": False, "detected_alert": False}
+    {"syndrome": "routine_checkup", "vitals": {"sys_bp": 120, "resp_rate": 16}, "expected_alert": False, "detected_alert": False},
 ]
 
 EXPLANATION_GROUNDEDNESS_BENCHMARKS = [
     {"doc_id": "DOC-1", "explanation": "Overdue for screening per USPSTF Colorectal Cancer 2021", "has_grounded_quote": True, "is_hallucinated": False},
     {"doc_id": "DOC-2", "explanation": "Diabetes HbA1c > 8.0% per ADA Guidelines 2023", "has_grounded_quote": True, "is_hallucinated": False},
     {"doc_id": "DOC-3", "explanation": "Hypertension screening recommended per USPSTF 2021", "has_grounded_quote": True, "is_hallucinated": False},
-    {"doc_id": "DOC-4", "explanation": "Random ungrounded claim with invalid citation", "has_grounded_quote": False, "is_hallucinated": True}
+    {"doc_id": "DOC-4", "explanation": "Random ungrounded claim with invalid citation", "has_grounded_quote": False, "is_hallucinated": True},
 ]
+
 
 def calculate_pipeline_kpis() -> KPISummaryResponse:
     """Calculates PRD Section 13 KPIs from real benchmark dataset executions."""
@@ -54,21 +55,8 @@ def calculate_pipeline_kpis() -> KPISummaryResponse:
     logger.info(f"Pipeline KPIs computed: Accuracy={accuracy_pct}%, Sensitivity={sensitivity_pct}%, HallucinationRate={hallucination_pct}%")
 
     return KPISummaryResponse(
-        extraction_accuracy=ExtractionAccuracyMetric(
-            total_test_samples=len(LABELED_EXTRACTION_TEST_SET),
-            correct_fields=correct_fields,
-            total_fields=total_fields,
-            accuracy_percentage=accuracy_pct
-        ),
-        red_flag_sensitivity=RedFlagSensitivityMetric(
-            total_emergency_cases=total_emergencies,
-            detected_cases=detected_emergencies,
-            sensitivity_percentage=sensitivity_pct
-        ),
-        hallucination_rate=HallucinationRateMetric(
-            total_explanations=total_explanations,
-            hallucinated_citations=hallucinations,
-            hallucination_rate_percentage=hallucination_pct
-        ),
-        evaluated_at=now_iso
+        extraction_accuracy=ExtractionAccuracyMetric(total_test_samples=len(LABELED_EXTRACTION_TEST_SET), correct_fields=correct_fields, total_fields=total_fields, accuracy_percentage=accuracy_pct),
+        red_flag_sensitivity=RedFlagSensitivityMetric(total_emergency_cases=total_emergencies, detected_cases=detected_emergencies, sensitivity_percentage=sensitivity_pct),
+        hallucination_rate=HallucinationRateMetric(total_explanations=total_explanations, hallucinated_citations=hallucinations, hallucination_rate_percentage=hallucination_pct),
+        evaluated_at=now_iso,
     )

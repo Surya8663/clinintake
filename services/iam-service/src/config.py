@@ -8,10 +8,7 @@ class Settings(BaseSettings):
     keycloak_url: str = Field(...)
     keycloak_realm: str = Field(...)
     keycloak_client_id: str = Field(...)
-    keycloak_client_secret: str = Field(
-        ...,
-        description="Keycloak client secret for OIDC token verification"
-    )
+    keycloak_client_secret: str = Field(..., description="Keycloak client secret for OIDC token verification")
     jwt_secret_key: str = Field(
         ...,
         description="HS256/RS256 signing key for JWT tokens",
@@ -21,5 +18,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
 
 settings = Settings()  # type: ignore[call-arg]

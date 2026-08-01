@@ -3,9 +3,10 @@
 
 Exit code 0 = all gates passed, 1 = at least one gate failed.
 """
+
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 

@@ -8,30 +8,27 @@ from src.main import app
 
 client = TestClient(app)
 
+
 def test_iam_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["token_ttl_minutes"] == 15
 
+
 def test_invalid_credentials_rejected():
     """Proves that authentication fails if invalid password is supplied."""
-    payload = {
-        "username": "dr_smith",
-        "password": "WrongPassword!"
-    }
+    payload = {"username": "dr_smith", "password": "WrongPassword!"}
     response = client.post("/iam/auth/login", json=payload)
     assert response.status_code == 401
     assert "Invalid credentials" in response.json()["detail"]
+
 
 def test_valid_oidc_login_issues_short_lived_jwt_with_roles():
     """
     Proves OIDC login generates a short-lived JWT token (15-min TTL) encoded with fine-grained roles.
     """
-    payload = {
-        "username": "dr_smith",
-        "password": "ClinicianPass123!"
-    }
+    payload = {"username": "dr_smith", "password": "ClinicianPass123!"}
     response = client.post("/iam/auth/login", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -56,12 +53,10 @@ def test_valid_oidc_login_issues_short_lived_jwt_with_roles():
     assert v_resp2.json()["valid"] is True
     assert v_resp2.json()["has_scope"] is False
 
+
 def test_m2m_token_generation():
     """Proves M2M client credentials endpoint issues valid internal service token."""
-    payload = {
-        "client_id": "clinintake-m2m",
-        "client_secret": "sec_keycloak_m2m_secret_2026"
-    }
+    payload = {"client_id": "clinintake-m2m", "client_secret": "sec_keycloak_m2m_secret_2026"}
     response = client.post("/iam/auth/token/m2m", json=payload)
     assert response.status_code == 200
     data = response.json()

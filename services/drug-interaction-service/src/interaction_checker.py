@@ -1,4 +1,3 @@
-
 import httpx
 
 from src.config import settings
@@ -19,6 +18,7 @@ KNOWN_DRUG_ALLERGIES = [
     ("ace inhibitors", "lisinopril", "high", "Lisinopril is an ACE inhibitor; contraindicated due to reported history of ACE-inhibitor allergy / angioedema.", "drug-allergy"),
     ("sulfa", "sulfamethoxazole", "high", "Sulfamethoxazole contains a sulfonamide moiety causing severe allergic reaction.", "drug-allergy"),
 ]
+
 
 async def check_rxnav_api_interactions(rxcuis: list[str]) -> list[DrugInteraction]:
     """Queries NLM RxNav Interaction API for drug-drug interactions using real RxCUI codes."""
@@ -46,18 +46,16 @@ async def check_rxnav_api_interactions(rxcuis: list[str]) -> list[DrugInteractio
                             severity_raw = pair_detail.get("severity", "high").lower()
                             severity = "high" if "high" in severity_raw or "severe" in severity_raw else "moderate"
 
-                            interactions.append(DrugInteraction(
-                                interaction_type="drug-drug",
-                                source_item=item1,
-                                target_item=item2,
-                                severity=severity,
-                                evidence=description,
-                                source_database="NLM_RxNav_Interaction_API"
-                            ))
+                            interactions.append(
+                                DrugInteraction(
+                                    interaction_type="drug-drug", source_item=item1, target_item=item2, severity=severity, evidence=description, source_database="NLM_RxNav_Interaction_API"
+                                )
+                            )
     except Exception as e:
         logger.warning(f"NLM RxNav Interaction API request failed or timed out: {e}")
 
     return interactions
+
 
 async def check_all_interactions(medications: list[DrugItem], allergies: list[AllergyItem]) -> InteractionCheckResponse:
     """Checks drug-drug and drug-allergy interactions deterministically using API and clinical database."""
@@ -77,14 +75,11 @@ async def check_all_interactions(medications: list[DrugItem], allergies: list[Al
                 if (known_d1 in d1 and known_d2 in d2) or (known_d2 in d1 and known_d1 in d2):
                     # Avoid duplicate if already reported by API
                     if not any(known_d1 in inter.source_item.lower() and known_d2 in inter.target_item.lower() for inter in interactions):
-                        interactions.append(DrugInteraction(
-                            interaction_type=itype,
-                            source_item=medications[i].name,
-                            target_item=medications[j].name,
-                            severity=sev,
-                            evidence=evidence,
-                            source_database="Clinical_Rx_Database"
-                        ))
+                        interactions.append(
+                            DrugInteraction(
+                                interaction_type=itype, source_item=medications[i].name, target_item=medications[j].name, severity=sev, evidence=evidence, source_database="Clinical_Rx_Database"
+                            )
+                        )
 
     # 3. Check Drug-Allergy interactions
     for allergy in allergies:
@@ -93,14 +88,11 @@ async def check_all_interactions(medications: list[DrugItem], allergies: list[Al
             med_name = med.name.lower()
             for known_alg, known_med, sev, evidence, itype in KNOWN_DRUG_ALLERGIES:
                 if (known_alg in alg_sub and known_med in med_name) or (known_alg in med_name and known_med in alg_sub):
-                    interactions.append(DrugInteraction(
-                        interaction_type="drug-allergy",
-                        source_item=allergy.substance,
-                        target_item=med.name,
-                        severity=sev,
-                        evidence=evidence,
-                        source_database="Clinical_Allergy_Database"
-                    ))
+                    interactions.append(
+                        DrugInteraction(
+                            interaction_type="drug-allergy", source_item=allergy.substance, target_item=med.name, severity=sev, evidence=evidence, source_database="Clinical_Allergy_Database"
+                        )
+                    )
 
     has_interactions = len(interactions) > 0
     has_high = any(i.severity == "high" for i in interactions)
@@ -114,9 +106,4 @@ async def check_all_interactions(medications: list[DrugItem], allergies: list[Al
 
     logger.info(f"Interaction check complete: total={len(interactions)}, high_severity={has_high}")
 
-    return InteractionCheckResponse(
-        has_interactions=has_interactions,
-        has_high_severity=has_high,
-        interactions=interactions,
-        plain_language_explanation=explanation
-    )
+    return InteractionCheckResponse(has_interactions=has_interactions, has_high_severity=has_high, interactions=interactions, plain_language_explanation=explanation)

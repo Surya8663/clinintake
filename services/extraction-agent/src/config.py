@@ -13,13 +13,10 @@ class Settings(BaseSettings):
     # LLM Configuration — API key via env var, never hardcoded
     # Supports OpenAI key or Google Gemini key (via OpenAI-compatible endpoint)
     llm_api_key: str = os.getenv("OPENAI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
-    llm_model: str = os.getenv("LLM_MODEL",
-        "gemini-2.5-flash" if os.getenv("GOOGLE_API_KEY") and not os.getenv("OPENAI_API_KEY") else "gpt-4o"
-    )
-    llm_base_url: str = os.getenv("LLM_BASE_URL",
-        "https://generativelanguage.googleapis.com/v1beta/openai/" if os.getenv("GOOGLE_API_KEY") and not os.getenv("OPENAI_API_KEY") else ""
-    )
+    llm_model: str = os.getenv("LLM_MODEL", "gemini-2.5-flash" if os.getenv("GOOGLE_API_KEY") and not os.getenv("OPENAI_API_KEY") else "gpt-4o")
+    llm_base_url: str = os.getenv("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/" if os.getenv("GOOGLE_API_KEY") and not os.getenv("OPENAI_API_KEY") else "")
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
 
 settings = Settings()

@@ -32,14 +32,15 @@ def get_auth_header():
         "iss": "http://localhost:8085/realms/clinintake",
         "aud": "clinintake-backend-services",
         "iat": now,
-        "exp": exp
+        "exp": exp,
     }
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
-    sig = hmac.new(b"test_orchestrator_jwt_secret_2026", message.encode('utf-8'), hashlib.sha256).digest()
+    sig = hmac.new(b"test_orchestrator_jwt_secret_2026", message.encode("utf-8"), hashlib.sha256).digest()
     token = f"{message}.{_b64_encode(sig)}"
     return {"Authorization": f"Bearer {token}"}
+
 
 def test_valid_transitions():
     wf = DocumentWorkflow(document_id="test-doc-1")
@@ -67,6 +68,7 @@ def test_valid_transitions():
     transition_workflow(wf, "write_ehr_success")
     assert wf.state == "complete"
 
+
 def test_invalid_transitions():
     wf = DocumentWorkflow(document_id="test-doc-2")
     assert wf.state == "received"
@@ -76,6 +78,7 @@ def test_invalid_transitions():
 
     with pytest.raises(MachineError):
         transition_workflow(wf, "extraction_success")
+
 
 def test_global_transitions():
     wf = DocumentWorkflow(document_id="test-doc-3")
@@ -87,6 +90,7 @@ def test_global_transitions():
     wf2 = DocumentWorkflow(document_id="test-doc-4", state="awaiting_approval")
     transition_workflow(wf2, "force_reject")
     assert wf2.state == "rejected"
+
 
 @patch("src.persistence.persistence.client")
 @pytest.mark.asyncio
@@ -114,11 +118,13 @@ async def test_persistence_save_load(mock_redis_client):
         assert loaded.state == "received"
         assert loaded.context["file_path"] == "/path/to/raw"
 
+
 def test_api_health():
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "workflow-orchestrator"}
+
 
 @patch("src.persistence.persistence.get_client")
 @patch("src.dispatcher.audit_event_bus.publish_event")
@@ -129,11 +135,7 @@ def test_api_create_document(mock_publish, mock_get_client):
 
     client = TestClient(app)
     headers = get_auth_header()
-    response = client.post(
-        "/orchestrator/documents",
-        json={"document_id": "api-doc-123", "file_path": "/data/input.pdf"},
-        headers=headers
-    )
+    response = client.post("/orchestrator/documents", json={"document_id": "api-doc-123", "file_path": "/data/input.pdf"}, headers=headers)
     assert response.status_code == 200
     assert response.json()["document_id"] == "api-doc-123"
     assert response.json()["state"] == "received"

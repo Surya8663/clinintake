@@ -9,19 +9,13 @@ from src.fhir_validator import build_and_validate_fhir_resources
 from src.logger import logger
 from src.models import ExtractRequest, ExtractResponse
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Quote-Grounded LLM Extraction Agent with FHIR R4 Validation and Emergency Safety Interrupt",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Quote-Grounded LLM Extraction Agent with FHIR R4 Validation and Emergency Safety Interrupt", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name,
-        "confidence_threshold": settings.confidence_threshold
-    }
+    return {"status": "ok", "service": settings.service_name, "confidence_threshold": settings.confidence_threshold}
+
 
 @app.post("/extract", response_model=ExtractResponse)
 async def extract_clinical_data(request: ExtractRequest):
@@ -34,11 +28,7 @@ async def extract_clinical_data(request: ExtractRequest):
     if not ocr_text:
         raise HTTPException(status_code=400, detail="ocr_text must be provided")
 
-    extracted_data = perform_quote_grounded_extraction(
-        ocr_text=ocr_text,
-        ocr_words=ocr_words,
-        threshold_override=settings.confidence_threshold
-    )
+    extracted_data = perform_quote_grounded_extraction(ocr_text=ocr_text, ocr_words=ocr_words, threshold_override=settings.confidence_threshold)
 
     fhir_resources = build_and_validate_fhir_resources(extracted_data)
 
@@ -65,7 +55,7 @@ async def extract_clinical_data(request: ExtractRequest):
                 "document_id": request.document_id,
                 "patient_id": extracted_data.patient_id.value,
                 "clinical_text": ocr_text,
-                "symptoms": [d.name.value for d in extracted_data.diagnoses]
+                "symptoms": [d.name.value for d in extracted_data.diagnoses],
             }
             resp = await client.post(f"{settings.safety_sub_agent_url}/safety/evaluate", json=safety_payload)
             latency_ms = round((time.time() - start_safety) * 1000.0, 2)
@@ -82,12 +72,7 @@ async def extract_clinical_data(request: ExtractRequest):
         is_em = any(term in text_lower for term in emergency_terms)
         latency_ms = round((time.time() - start_safety) * 1000.0, 2)
         safety_triggered = is_em
-        safety_res = {
-            "document_id": request.document_id,
-            "is_emergency": is_em,
-            "assessment_status": "complete",
-            "rationale": "Direct local emergency safety interrupt lane evaluated."
-        }
+        safety_res = {"document_id": request.document_id, "is_emergency": is_em, "assessment_status": "complete", "rationale": "Direct local emergency safety interrupt lane evaluated."}
         logger.info(f"Direct Safety Interrupt fast evaluation completed in {latency_ms}ms (is_emergency={is_em}).")
 
     return ExtractResponse(
@@ -97,5 +82,5 @@ async def extract_clinical_data(request: ExtractRequest):
         overall_confidence=overall_confidence,
         safety_interrupt_triggered=safety_triggered,
         safety_response=safety_res,
-        safety_interrupt_latency_ms=latency_ms
+        safety_interrupt_latency_ms=latency_ms,
     )

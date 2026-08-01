@@ -8,6 +8,7 @@ class GroundingVerificationRequest(BaseModel):
     source_evidence_spans: list[Any] = Field(default_factory=list, description="Ground-truth quotes or evidence spans")
     guideline_passages: list[Any] = Field(default_factory=list, description="Ground-truth retrieved guideline passages")
 
+
 class GroundingVerificationResponse(BaseModel):
     is_safe: bool
     blocked: bool = Field(..., description="True if response MUST be blocked due to hallucination")
@@ -15,8 +16,10 @@ class GroundingVerificationResponse(BaseModel):
     hallucinated_claims: list[str] = Field(default_factory=list)
     reason: str
 
+
 class PHIScrubRequest(BaseModel):
     raw_text: str
+
 
 class PHIScrubResponse(BaseModel):
     scrubbed_text: str

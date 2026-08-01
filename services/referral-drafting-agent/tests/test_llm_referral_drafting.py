@@ -5,6 +5,7 @@ Tests:
 2. Preservation of deterministic urgency classification (EMERGENCY on safety red flags)
 Requires OPENAI_API_KEY or GOOGLE_API_KEY environment variable.
 """
+
 import os
 
 import pytest
@@ -18,26 +19,17 @@ SAMPLE_REFERRAL_REQUEST = ReferralDraftRequest(
     target_specialty="Cardiology",
     clinical_decision_package={
         "patient_id": "PAT-CARD-881",
-        "temporal_care_gaps": [
-            {
-                "measure_name": "USPSTF Hypertension Screening & Evaluation",
-                "status": "overdue",
-                "due_date": "2025-11-30"
-            }
-        ],
+        "temporal_care_gaps": [{"measure_name": "USPSTF Hypertension Screening & Evaluation", "status": "overdue", "due_date": "2025-11-30"}],
         "guideline_passages": [
             {
                 "source": "ACC/AHA Hypertension Clinical Practice Guideline",
                 "section": "Stage 2 Hypertension Management",
                 "clause_id": "ACC-HTN-2023-04",
-                "passage_text": "Adults with Stage 2 hypertension and elevated cardiovascular risk should be referred for specialist evaluation and dual antihypertensive therapy."
+                "passage_text": "Adults with Stage 2 hypertension and elevated cardiovascular risk should be referred for specialist evaluation and dual antihypertensive therapy.",
             }
         ],
-        "safety_assessment": {
-            "is_emergency": False,
-            "red_flags": []
-        }
-    }
+        "safety_assessment": {"is_emergency": False, "red_flags": []},
+    },
 )
 
 SAMPLE_EMERGENCY_REQUEST = ReferralDraftRequest(
@@ -52,25 +44,15 @@ SAMPLE_EMERGENCY_REQUEST = ReferralDraftRequest(
                 "source": "Emergency Cardiac Triage Guideline",
                 "section": "Acute Coronary Syndrome",
                 "clause_id": "EMERG-ACS-01",
-                "passage_text": "Immediate cardiology referral and ED transfer for persistent ischemic chest pain with ST changes."
+                "passage_text": "Immediate cardiology referral and ED transfer for persistent ischemic chest pain with ST changes.",
             }
         ],
-        "safety_assessment": {
-            "is_emergency": True,
-            "red_flags": [
-                {
-                    "syndrome": "chest_pain",
-                    "description": "Severe retrosternal chest pain with troponin I elevation to 4.2 ng/mL."
-                }
-            ]
-        }
-    }
+        "safety_assessment": {"is_emergency": True, "red_flags": [{"syndrome": "chest_pain", "description": "Severe retrosternal chest pain with troponin I elevation to 4.2 ng/mL."}]},
+    },
 )
 
-@pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"),
-    reason="No LLM API key set — skipping real LLM integration test"
-)
+
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"), reason="No LLM API key set — skipping real LLM integration test")
 def test_real_llm_referral_letter_drafting():
     """
     Test 1: Generates a real LLM referral letter from synthetic clinical package.
@@ -94,10 +76,8 @@ def test_real_llm_referral_letter_drafting():
     assert len(response.grounded_evidence) == 1
     assert response.grounded_evidence[0].clause_id == "ACC-HTN-2023-04"
 
-@pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"),
-    reason="No LLM API key set — skipping real LLM integration test"
-)
+
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"), reason="No LLM API key set — skipping real LLM integration test")
 def test_deterministic_urgency_classification_preserved():
     """
     Test 2: Verifies that safety red flags deterministically set urgency_level='EMERGENCY'.

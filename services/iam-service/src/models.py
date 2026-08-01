@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 
@@ -7,9 +6,11 @@ class LoginRequest(BaseModel):
     password: str
     mfa_code: str | None = Field(default=None, description="Optional OIDC MFA passcode")
 
+
 class M2MTokenRequest(BaseModel):
     client_id: str
     client_secret: str
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -19,10 +20,12 @@ class TokenResponse(BaseModel):
     scopes: list[str]
     refresh_token: str | None = None
 
+
 class VerifyTokenRequest(BaseModel):
     token: str
     required_scope: str | None = None
     required_role: str | None = None
+
 
 class VerifyTokenResponse(BaseModel):
     valid: bool

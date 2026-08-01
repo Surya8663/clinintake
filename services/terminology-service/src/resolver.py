@@ -35,6 +35,7 @@ CLINICAL_RXNORM_INDEX = {
     "atorvastatin": ("617314", "Atorvastatin 20 MG Oral Tablet", 0.95),
 }
 
+
 async def map_rxnorm_term(term: str) -> tuple[str | None, str | None, float, str]:
     """Queries NLM RxNav REST API for live RxCUI resolution with fuzzy index fallback."""
     url = f"{settings.rxnav_api_base_url}/rxcui.json"
@@ -88,6 +89,7 @@ async def map_rxnorm_term(term: str) -> tuple[str | None, str | None, float, str
 
     return None, None, 0.0, "NLM_RxNav_API"
 
+
 def map_snomed_term(term: str) -> tuple[str | None, str | None, float, str]:
     """Normalizes term to SNOMED CT code system with exact and fuzzy matching."""
     clean_term = term.lower().strip()
@@ -109,6 +111,7 @@ def map_snomed_term(term: str) -> tuple[str | None, str | None, float, str]:
 
     return None, None, 0.0, "SNOMED_CT_Index"
 
+
 def map_loinc_term(term: str) -> tuple[str | None, str | None, float, str]:
     """Normalizes term to LOINC code system with exact and fuzzy matching."""
     clean_term = term.lower().strip()
@@ -129,6 +132,7 @@ def map_loinc_term(term: str) -> tuple[str | None, str | None, float, str]:
         return code, name, round(conf * 0.85, 2), "LOINC_Fuzzy_Index"
 
     return None, None, 0.0, "LOINC_Index"
+
 
 async def resolve_terminology(term: str, code_system: str) -> TerminologyMapResponse:
     """Normalizes clinical terms across RxNorm, LOINC, and SNOMED CT with unmapped escalation handling."""
@@ -159,5 +163,5 @@ async def resolve_terminology(term: str, code_system: str) -> TerminologyMapResp
         confidence_score=conf,
         is_mapped=is_mapped,
         requires_unmapped_escalation=requires_escalation,
-        source_api=source_api
+        source_api=source_api,
     )

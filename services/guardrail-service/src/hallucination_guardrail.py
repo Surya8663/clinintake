@@ -3,13 +3,8 @@ import re
 from src.logger import logger
 from src.models import GroundingVerificationRequest, GroundingVerificationResponse
 
-FABRICATED_KEYWORDS = [
-    "fabricated",
-    "fake_citation",
-    "unverified_claim",
-    "hallucinated_recommendation",
-    "unsupported_dosaging"
-]
+FABRICATED_KEYWORDS = ["fabricated", "fake_citation", "unverified_claim", "hallucinated_recommendation", "unsupported_dosaging"]
+
 
 def verify_clinical_claim_grounding(request: GroundingVerificationRequest) -> GroundingVerificationResponse:
     """
@@ -44,7 +39,7 @@ def verify_clinical_claim_grounding(request: GroundingVerificationRequest) -> Gr
     grounding_score = 1.0
     if combined_context:
         # Check sentence level alignment
-        sentences = [s.strip() for s in re.split(r'[.!?]', request.generated_text) if len(s.strip()) > 10]
+        sentences = [s.strip() for s in re.split(r"[.!?]", request.generated_text) if len(s.strip()) > 10]
         unsupported = 0
         for sent in sentences:
             sent_lower = sent.lower()
@@ -69,10 +64,4 @@ def verify_clinical_claim_grounding(request: GroundingVerificationRequest) -> Gr
         reason = "Passed hallucination grounding check. All clinical claims grounded in source evidence."
         logger.info(f"Guardrail passed: Grounding score {grounding_score}")
 
-    return GroundingVerificationResponse(
-        is_safe=is_safe,
-        blocked=is_blocked,
-        grounding_score=grounding_score,
-        hallucinated_claims=hallucinated_claims,
-        reason=reason
-    )
+    return GroundingVerificationResponse(is_safe=is_safe, blocked=is_blocked, grounding_score=grounding_score, hallucinated_claims=hallucinated_claims, reason=reason)

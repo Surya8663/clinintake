@@ -1,5 +1,3 @@
-import os
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -63,11 +61,13 @@ All inter-service API communications MUST include standard tracking headers:
 ```
 """
 
+
 def main():
     target = REPO_ROOT / "docs" / "api-contract-matrix.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(MATRIX_CONTENT, encoding="utf-8")
     print(f"[OK] Generated API Contract Matrix -> {target.relative_to(REPO_ROOT)}")
+
 
 if __name__ == "__main__":
     main()

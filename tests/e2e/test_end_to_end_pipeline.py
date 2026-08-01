@@ -1,10 +1,11 @@
+import hashlib
+import hmac
 import os
+from pathlib import Path
 import sys
 import uuid
-import hmac
-import hashlib
+
 import pytest
-from pathlib import Path
 
 os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_2026"
 os.environ["ENCRYPTION_KEY"] = "test_kms_encryption_key_32_bytes_len"
@@ -15,12 +16,13 @@ sys.path.insert(0, str(REPO_ROOT))
 import importlib
 
 for k in list(sys.modules.keys()):
-    if k == 'src' or k.startswith('src.'):
+    if k == "src" or k.startswith("src."):
         del sys.modules[k]
 
 sys.path.insert(0, str(REPO_ROOT / "services" / "orchestrator"))
 
 from packages.clinical_contracts import ClinicalWorkflowState, is_valid_transition
+
 orch_sm = importlib.import_module("services.orchestrator.src.state_machine")
 DocumentWorkflow = orch_sm.DocumentWorkflow
 transition_workflow = orch_sm.transition_workflow
@@ -29,6 +31,7 @@ OptimisticLockError = orch_sm.OptimisticLockError
 orch_main = importlib.import_module("services.orchestrator.src.main")
 orchestrator_app = orch_main.app
 orch_client = TestClient(orchestrator_app)
+
 
 def test_e2e_full_workflow_timeline():
     document_id = f"DOC-E2E-{uuid.uuid4().hex[:8]}"
@@ -39,12 +42,7 @@ def test_e2e_full_workflow_timeline():
 
     # 1. State: RECEIVED
     workflow = DocumentWorkflow(
-        document_id=document_id,
-        state=ClinicalWorkflowState.RECEIVED.value,
-        context={"file_path": f"kms_encrypted/{document_id}.enc"},
-        version=1,
-        trace_id=trace_id,
-        correlation_id=correlation_id
+        document_id=document_id, state=ClinicalWorkflowState.RECEIVED.value, context={"file_path": f"kms_encrypted/{document_id}.enc"}, version=1, trace_id=trace_id, correlation_id=correlation_id
     )
     timeline.append((workflow.state, workflow.version))
 
@@ -115,6 +113,7 @@ def test_e2e_full_workflow_timeline():
         print(f"Step {idx + 1:02d}: State = {st:<28} Version = {ver}")
     print("==================================================")
 
+
 def test_optimistic_locking_concurrency_conflict():
     document_id = f"DOC-OPT-{uuid.uuid4().hex[:8]}"
     workflow = DocumentWorkflow(document_id=document_id, state="received", version=1)
@@ -123,32 +122,27 @@ def test_optimistic_locking_concurrency_conflict():
     with pytest.raises(OptimisticLockError):
         transition_workflow(workflow, "start_sanitize", expected_version=99)
 
+
 def test_duplicate_callback_replay_protection():
     secret = "sec_lyzr_webhook_hmac_2026"
     body = b'{"document_id": "DOC-REPLAY-101", "node_id": "extraction_agent", "status": "COMPLETED"}'
-    valid_sig = hmac.new(secret.encode('utf-8'), body, hashlib.sha256).hexdigest()
+    valid_sig = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
     # 1. First Webhook Callback Call
-    res1 = orch_client.post(
-        "/orchestrator/webhooks/lyzr-callback",
-        content=body,
-        headers={"X-Lyzr-Signature": valid_sig, "Content-Type": "application/json"}
-    )
+    res1 = orch_client.post("/orchestrator/webhooks/lyzr-callback", content=body, headers={"X-Lyzr-Signature": valid_sig, "Content-Type": "application/json"})
     assert res1.status_code == 200
     assert res1.json()["replay"] is False
 
     # 2. Duplicate Webhook Callback Call (Replay)
-    res2 = orch_client.post(
-        "/orchestrator/webhooks/lyzr-callback",
-        content=body,
-        headers={"X-Lyzr-Signature": valid_sig, "Content-Type": "application/json"}
-    )
+    res2 = orch_client.post("/orchestrator/webhooks/lyzr-callback", content=body, headers={"X-Lyzr-Signature": valid_sig, "Content-Type": "application/json"})
     assert res2.status_code == 200
     assert res2.json()["replay"] is True
+
 
 def test_non_retryable_validation_failure_routing():
     invalid_state = "invalid_state_xyz"
     assert is_valid_transition("received", invalid_state) is False
+
 
 def test_retryable_dependency_interruption_recovery():
     # Test retryable state transition to FAILED_RETRYABLE and back

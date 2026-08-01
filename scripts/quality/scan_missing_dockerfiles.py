@@ -6,8 +6,9 @@ in each service's build context directory.
 
 Exit code 0 = all present, 1 = missing Dockerfiles.
 """
-import sys
+
 from pathlib import Path
+import sys
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"

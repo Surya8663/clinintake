@@ -9,8 +9,10 @@ from src.logger import logger
 class UnapprovedEHRWriteError(Exception):
     """Raised when an attempt to transition to writing_ehr occurs without signed clinician approval."""
 
+
 class OptimisticLockError(Exception):
     """Raised when a state transition or save fails due to version mismatch."""
+
 
 class DocumentWorkflow:
     def __init__(
@@ -21,7 +23,7 @@ class DocumentWorkflow:
         version: int = 1,
         trace_id: str | None = None,
         correlation_id: str | None = None,
-        lyzr_execution_id: str | None = None
+        lyzr_execution_id: str | None = None,
     ):
         self.document_id = document_id
         self.state = state
@@ -31,10 +33,9 @@ class DocumentWorkflow:
         self.correlation_id = correlation_id
         self.lyzr_execution_id = lyzr_execution_id
 
+
 class WorkflowMachine:
-    STATES = [s.value for s in ClinicalWorkflowState] + [
-        "sanitizing", "extracting", "validating", "reasoning", "awaiting_approval", "writing_ehr", "complete", "escalated"
-    ]
+    STATES = [s.value for s in ClinicalWorkflowState] + ["sanitizing", "extracting", "validating", "reasoning", "awaiting_approval", "writing_ehr", "complete", "escalated"]
 
     TRANSITIONS = [
         {"trigger": "start_sanitize", "source": ["received", "failed_retryable"], "dest": "sanitizing"},
@@ -69,22 +70,10 @@ class WorkflowMachine:
 
     @classmethod
     def get_machine(cls, model: DocumentWorkflow) -> Machine:
-        return Machine(
-            model=model,
-            states=cls.STATES,
-            transitions=cls.TRANSITIONS,
-            initial=model.state,
-            send_event=True,
-            auto_transitions=False
-        )
+        return Machine(model=model, states=cls.STATES, transitions=cls.TRANSITIONS, initial=model.state, send_event=True, auto_transitions=False)
 
-def transition_workflow(
-    model: DocumentWorkflow,
-    trigger: str,
-    expected_version: int | None = None,
-    *args,
-    **kwargs
-) -> DocumentWorkflow:
+
+def transition_workflow(model: DocumentWorkflow, trigger: str, expected_version: int | None = None, *args, **kwargs) -> DocumentWorkflow:
     """
     Attempts to trigger a state transition on DocumentWorkflow with optimistic concurrency control.
     """
@@ -99,38 +88,15 @@ def transition_workflow(
             raise UnapprovedEHRWriteError("Governance Violation: Cannot transition to writing_ehr without genuine Signed Approval event.")
 
     machine = WorkflowMachine.get_machine(model)
-    logger.info(
-        f"Attempting transition: {trigger} (v{model.version})",
-        extra={
-            "document_id": model.document_id,
-            "current_state": model.state,
-            "trigger": trigger,
-            "version": model.version
-        }
-    )
+    logger.info(f"Attempting transition: {trigger} (v{model.version})", extra={"document_id": model.document_id, "current_state": model.state, "trigger": trigger, "version": model.version})
 
     try:
         trigger_func = getattr(model, trigger)
         trigger_func(*args, **kwargs)
         model.version += 1
     except MachineError as e:
-        logger.error(
-            f"Invalid transition attempted: {trigger}",
-            extra={
-                "document_id": model.document_id,
-                "current_state": model.state,
-                "trigger": trigger,
-                "error": str(e)
-            }
-        )
+        logger.error(f"Invalid transition attempted: {trigger}", extra={"document_id": model.document_id, "current_state": model.state, "trigger": trigger, "error": str(e)})
         raise e
 
-    logger.info(
-        f"Transition successful: {trigger} -> {model.state} (v{model.version})",
-        extra={
-            "document_id": model.document_id,
-            "new_state": model.state,
-            "version": model.version
-        }
-    )
+    logger.info(f"Transition successful: {trigger} -> {model.state} (v{model.version})", extra={"document_id": model.document_id, "new_state": model.state, "version": model.version})
     return model

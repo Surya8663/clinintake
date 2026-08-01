@@ -13,8 +13,10 @@ from src.models import GuidelineChunk, GuidelineMatch, GuidelineQueryResponse
 class QdrantUnavailableError(Exception):
     """Raised when Qdrant server is unreachable or offline."""
 
+
 class QdrantCollectionError(Exception):
     """Raised when Qdrant collection operations fail."""
+
 
 def _generate_dense_vector(text: str, dim: int = 384) -> list[float]:
     """
@@ -26,7 +28,7 @@ def _generate_dense_vector(text: str, dim: int = 384) -> list[float]:
         return [0.0] * dim
     vector = [0.0] * dim
     for word in words:
-        h = hashlib.sha256(word.encode('utf-8')).digest()
+        h = hashlib.sha256(word.encode("utf-8")).digest()
         for i in range(dim):
             val = (h[i % len(h)] - 128) / 128.0
             vector[i] += val
@@ -37,12 +39,13 @@ def _generate_dense_vector(text: str, dim: int = 384) -> list[float]:
         vector = [round(v / magnitude, 6) for v in vector]
     return vector
 
+
 def _generate_sparse_indices(text: str) -> models.SparseVector:
     """Generates sparse term frequency vector for lexical BM25-style match."""
     words = [w.strip(".,;:()").lower() for w in text.split() if len(w) > 2]
     term_counts: dict[int, float] = {}
     for word in words:
-        idx = int(hashlib.md5(word.encode('utf-8')).hexdigest(), 16) % 10000
+        idx = int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16) % 10000
         term_counts[idx] = term_counts.get(idx, 0.0) + 1.0
 
     indices = sorted(list(term_counts.keys()))
@@ -61,11 +64,7 @@ class QdrantGuidelineRepository:
                 if settings.qdrant_url == ":memory:":
                     self._client = QdrantClient(":memory:")
                 else:
-                    self._client = QdrantClient(
-                        url=settings.qdrant_url,
-                        api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
-                        timeout=3
-                    )
+                    self._client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key if settings.qdrant_api_key else None, timeout=3)
             except Exception as e:
                 logger.error(f"Failed to connect to Qdrant at {settings.qdrant_url}: {e}")
                 raise QdrantUnavailableError(f"Qdrant server unavailable at {settings.qdrant_url}")
@@ -90,29 +89,14 @@ class QdrantGuidelineRepository:
                 logger.info(f"Creating Qdrant collection '{self.collection_name}' with dense & sparse vectors.")
                 client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config={
-                        settings.dense_vector_name: models.VectorParams(
-                            size=384,
-                            distance=models.Distance.COSINE
-                        )
-                    },
-                    sparse_vectors_config={
-                        settings.sparse_vector_name: models.SparseVectorParams()
-                    }
+                    vectors_config={settings.dense_vector_name: models.VectorParams(size=384, distance=models.Distance.COSINE)},
+                    sparse_vectors_config={settings.sparse_vector_name: models.SparseVectorParams()},
                 )
                 # Create payload indexes
-                client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="is_active",
-                    field_schema=models.PayloadSchemaType.BOOL
-                )
+                client.create_payload_index(collection_name=self.collection_name, field_name="is_active", field_schema=models.PayloadSchemaType.BOOL)
                 keyword_fields = ["jurisdiction", "version", "effective_date", "guideline_id", "source_organization"]
                 for field in keyword_fields:
-                    client.create_payload_index(
-                        collection_name=self.collection_name,
-                        field_name=field,
-                        field_schema=models.PayloadSchemaType.KEYWORD
-                    )
+                    client.create_payload_index(collection_name=self.collection_name, field_name=field, field_schema=models.PayloadSchemaType.KEYWORD)
                 logger.info(f"Collection '{self.collection_name}' created with payload indexes.")
         except QdrantUnavailableError:
             raise
@@ -140,10 +124,7 @@ class QdrantGuidelineRepository:
             points.append(
                 models.PointStruct(
                     id=point_uuid,
-                    vector={
-                        settings.dense_vector_name: dense_vec,
-                        settings.sparse_vector_name: sparse_vec
-                    },
+                    vector={settings.dense_vector_name: dense_vec, settings.sparse_vector_name: sparse_vec},
                     payload={
                         "guideline_id": chunk.guideline_id,
                         "source_organization": chunk.source_organization,
@@ -161,24 +142,16 @@ class QdrantGuidelineRepository:
                         "page": chunk.page,
                         "text": chunk.text,
                         "clause_id": chunk.clause_id,
-                        "is_active": chunk.is_active
-                    }
+                        "is_active": chunk.is_active,
+                    },
                 )
             )
 
-        client.upsert(
-            collection_name=self.collection_name,
-            points=points
-        )
+        client.upsert(collection_name=self.collection_name, points=points)
         logger.info(f"Successfully upserted {len(points)} guideline points into Qdrant collection '{self.collection_name}'.")
         return len(points)
 
-    def search_guidelines(
-        self,
-        query: str,
-        threshold_override: float | None = None,
-        metadata_filter: dict[str, Any] | None = None
-    ) -> GuidelineQueryResponse:
+    def search_guidelines(self, query: str, threshold_override: float | None = None, metadata_filter: dict[str, Any] | None = None) -> GuidelineQueryResponse:
         """
         Executes hybrid Qdrant search across dense semantic and sparse lexical vectors
         with payload filtering and RRF fusion scoring.
@@ -193,50 +166,24 @@ class QdrantGuidelineRepository:
             col_info = client.get_collection(self.collection_name)
             if col_info.points_count == 0:
                 logger.info(f"Qdrant collection '{self.collection_name}' is empty. Returning 'insufficient_guideline_evidence'.")
-                return GuidelineQueryResponse(
-                    query=query,
-                    status="insufficient_guideline_evidence",
-                    matches=[],
-                    relevance_threshold_used=threshold
-                )
+                return GuidelineQueryResponse(query=query, status="insufficient_guideline_evidence", matches=[], relevance_threshold_used=threshold)
         except Exception:
-            return GuidelineQueryResponse(
-                query=query,
-                status="insufficient_guideline_evidence",
-                matches=[],
-                relevance_threshold_used=threshold
-            )
+            return GuidelineQueryResponse(query=query, status="insufficient_guideline_evidence", matches=[], relevance_threshold_used=threshold)
 
         # Build Qdrant payload filters
-        must_conditions = [
-            models.FieldCondition(
-                key="is_active",
-                match=models.MatchValue(value=True)
-            )
-        ]
+        must_conditions = [models.FieldCondition(key="is_active", match=models.MatchValue(value=True))]
 
         if metadata_filter:
             for k, v in metadata_filter.items():
                 if v is not None:
-                    must_conditions.append(
-                        models.FieldCondition(
-                            key=k,
-                            match=models.MatchValue(value=v)
-                        )
-                    )
+                    must_conditions.append(models.FieldCondition(key=k, match=models.MatchValue(value=v)))
 
         qdrant_filter = models.Filter(must=must_conditions)  # type: ignore[arg-type]
         dense_query_vec = _generate_dense_vector(query)
 
         # Execute dense search via Qdrant query_points (qdrant-client 1.17+)
         try:
-            res = client.query_points(
-                collection_name=self.collection_name,
-                query=dense_query_vec,
-                using=settings.dense_vector_name,
-                query_filter=qdrant_filter,
-                limit=10
-            )
+            res = client.query_points(collection_name=self.collection_name, query=dense_query_vec, using=settings.dense_vector_name, query_filter=qdrant_filter, limit=10)
             search_results = getattr(res, "points", res)
         except Exception as e:
             logger.error(f"Qdrant query execution error: {e}")
@@ -258,25 +205,16 @@ class QdrantGuidelineRepository:
                     similarity_score=round(float(hit.score), 4),  # type: ignore[union-attr]
                     qdrant_point_id=str(hit.id),  # type: ignore[union-attr]
                     fusion_method="RRF_HYBRID_COSINE",
-                    chunk_checksum=payload.get("chunk_checksum", "")
+                    chunk_checksum=payload.get("chunk_checksum", ""),
                 )
             )
 
         if not matches:
             logger.info(f"Query '{query}' yielded 0 matches above threshold {threshold}.")
-            return GuidelineQueryResponse(
-                query=query,
-                status="insufficient_guideline_evidence",
-                matches=[],
-                relevance_threshold_used=threshold
-            )
+            return GuidelineQueryResponse(query=query, status="insufficient_guideline_evidence", matches=[], relevance_threshold_used=threshold)
 
         logger.info(f"Query '{query}' returned {len(matches)} matches above threshold {threshold}.")
-        return GuidelineQueryResponse(
-            query=query,
-            status="success",
-            matches=matches,
-            relevance_threshold_used=threshold
-        )
+        return GuidelineQueryResponse(query=query, status="success", matches=matches, relevance_threshold_used=threshold)
+
 
 qdrant_repo = QdrantGuidelineRepository()

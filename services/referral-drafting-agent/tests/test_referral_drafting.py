@@ -4,10 +4,12 @@ from src.main import app
 
 client = TestClient(app)
 
+
 def test_referral_drafting_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
 
 def test_generate_referral_draft_letter():
     payload = {
@@ -16,21 +18,16 @@ def test_generate_referral_draft_letter():
         "target_specialty": "Gastroenterology",
         "clinical_decision_package": {
             "patient_id": "PAT-Gastro-007",
-            "temporal_care_gaps": [
-                {
-                    "measure_name": "USPSTF Colorectal Screening",
-                    "status": "overdue"
-                }
-            ],
+            "temporal_care_gaps": [{"measure_name": "USPSTF Colorectal Screening", "status": "overdue"}],
             "guideline_passages": [
                 {
                     "source": "USPSTF CRC 2021",
                     "section": "Recommendation",
                     "clause_id": "CRC-2021-01",
-                    "passage_text": "The USPSTF recommends screening for colorectal cancer in adults aged 45 to 75 years."
+                    "passage_text": "The USPSTF recommends screening for colorectal cancer in adults aged 45 to 75 years.",
                 }
-            ]
-        }
+            ],
+        },
     }
 
     response = client.post("/referral/draft", json=payload)

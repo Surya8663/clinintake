@@ -7,12 +7,7 @@ from src.logger import logger
 
 
 async def assemble_clinical_decision_package(
-    document_id: str,
-    patient_id: str | None = None,
-    clinical_text: str | None = None,
-    symptoms: list | None = None,
-    vitals: dict | None = None,
-    medications: list | None = None
+    document_id: str, patient_id: str | None = None, clinical_text: str | None = None, symptoms: list | None = None, vitals: dict | None = None, medications: list | None = None
 ) -> dict[str, Any]:
     """
     Genuinely awaits and aggregates real responses from all 5 reasoning/retrieval engines
@@ -54,7 +49,9 @@ async def assemble_clinical_decision_package(
 
         # 4. Safety Sub-Agent
         try:
-            s_resp = await client.post(f"{settings.safety_sub_agent_url}/safety/evaluate", json={"document_id": document_id, "patient_id": patient_id, "vitals": vitals, "clinical_text": clinical_text, "symptoms": symptoms})
+            s_resp = await client.post(
+                f"{settings.safety_sub_agent_url}/safety/evaluate", json={"document_id": document_id, "patient_id": patient_id, "vitals": vitals, "clinical_text": clinical_text, "symptoms": symptoms}
+            )
             if s_resp.status_code == 200:
                 safety_assessment = s_resp.json()
         except Exception as e:
@@ -76,7 +73,7 @@ async def assemble_clinical_decision_package(
         "temporal_care_gaps": temporal_care_gaps,
         "drug_interactions": drug_interactions,
         "safety_assessment": safety_assessment,
-        "guideline_passages": guideline_passages
+        "guideline_passages": guideline_passages,
     }
 
     logger.info(f"Successfully assembled Clinical Decision Package for document_id={document_id}")

@@ -3,6 +3,7 @@ Idempotency key store backed by Redis with TTL.
 Used to prevent duplicate EHR writes, duplicate audit events, and duplicate DLQ entries.
 Redis is ephemeral only - idempotency keys are short-lived and not treated as durable clinical records.
 """
+
 import hashlib
 import logging
 
@@ -47,11 +48,7 @@ class IdempotencyStore:
         """
         key = self._key(idempotency_id)
         # SET NX (only if not exists) with TTL
-        result = await self._redis.set(
-            key, metadata or "processed",
-            nx=True,
-            ex=IDEMPOTENCY_TTL_SECONDS
-        )
+        result = await self._redis.set(key, metadata or "processed", nx=True, ex=IDEMPOTENCY_TTL_SECONDS)
         if result is None:
             logger.warning(f"Duplicate idempotency key detected for {idempotency_id[:16]}...")
             return True  # Duplicate

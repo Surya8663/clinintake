@@ -11,6 +11,7 @@ from src.models import BoundingBox, OCRLine, OCRPage, OCRWord
 if settings.tesseract_cmd != "tesseract":
     pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
 
+
 def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPage:
     """Uses pytesseract to get word-level bounding boxes and confidence scores."""
     width, height = image.size
@@ -19,29 +20,19 @@ def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPag
         words: list[OCRWord] = []
         lines_dict: dict[int, list[OCRWord]] = {}
 
-        n_boxes = len(data['text'])
+        n_boxes = len(data["text"])
         for i in range(n_boxes):
-            text = data['text'][i].strip()
-            conf = float(data['conf'][i])
+            text = data["text"][i].strip()
+            conf = float(data["conf"][i])
             if text and conf >= 0:
-                left = int(data['left'][i])
-                top = int(data['top'][i])
-                w = int(data['width'][i])
-                h = int(data['height'][i])
-                line_num = data['line_num'][i]
+                left = int(data["left"][i])
+                top = int(data["top"][i])
+                w = int(data["width"][i])
+                h = int(data["height"][i])
+                line_num = data["line_num"][i]
 
-                bbox = BoundingBox(
-                    x_min=left,
-                    y_min=top,
-                    x_max=left + w,
-                    y_max=top + h
-                )
-                ocr_word = OCRWord(
-                    text=text,
-                    confidence=round(conf / 100.0, 2),
-                    bbox=bbox,
-                    page_number=page_number
-                )
+                bbox = BoundingBox(x_min=left, y_min=top, x_max=left + w, y_max=top + h)
+                ocr_word = OCRWord(text=text, confidence=round(conf / 100.0, 2), bbox=bbox, page_number=page_number)
                 words.append(ocr_word)
 
                 if line_num not in lines_dict:
@@ -55,37 +46,21 @@ def process_image_with_tesseract(image: Image.Image, page_number: int) -> OCRPag
             min_y = min(w.bbox.y_min for w in line_words)
             max_x = max(w.bbox.x_max for w in line_words)
             max_y = max(w.bbox.y_max for w in line_words)
-            lines.append(OCRLine(
-                line_text=line_text,
-                bbox=BoundingBox(x_min=min_x, y_min=min_y, x_max=max_x, y_max=max_y),
-                words=line_words
-            ))
+            lines.append(OCRLine(line_text=line_text, bbox=BoundingBox(x_min=min_x, y_min=min_y, x_max=max_x, y_max=max_y), words=line_words))
 
         full_text = "\n".join([l.line_text for l in lines])
-        return OCRPage(
-            page_number=page_number,
-            width=width,
-            height=height,
-            text=full_text,
-            words=words,
-            lines=lines
-        )
+        return OCRPage(page_number=page_number, width=width, height=height, text=full_text, words=words, lines=lines)
     except Exception as e:
         logger.warning(f"Tesseract binary execution failed: {e}. Falling back to spatial layout parser.")
         return process_spatial_layout_fallback(image, page_number)
+
 
 def process_spatial_layout_fallback(image: Image.Image, page_number: int) -> OCRPage:
     """Fallback when Tesseract system binary is missing — returns empty OCR page, no fabricated data."""
     width, height = image.size
     logger.error(f"Tesseract unavailable: returning empty OCR page for page {page_number}. No text extracted.")
-    return OCRPage(
-        page_number=page_number,
-        width=width,
-        height=height,
-        text="",
-        words=[],
-        lines=[]
-    )
+    return OCRPage(page_number=page_number, width=width, height=height, text="", words=[], lines=[])
+
 
 def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
     """Processes PDF document using pypdf extraction with spatial coordinate calculation."""
@@ -99,7 +74,7 @@ def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
         words: list[OCRWord] = []
         lines: list[OCRLine] = []
 
-        raw_lines = [l for l in page_text.split('\n') if l.strip()]
+        raw_lines = [l for l in page_text.split("\n") if l.strip()]
         curr_y = 50
         for _l_idx, line_str in enumerate(raw_lines):
             tokens = line_str.split()
@@ -109,42 +84,18 @@ def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
             line_words = []
             for token in tokens:
                 w_width = len(token) * 10
-                bbox = BoundingBox(
-                    x_min=curr_x,
-                    y_min=curr_y,
-                    x_max=curr_x + w_width,
-                    y_max=curr_y + 18
-                )
-                w_obj = OCRWord(
-                    text=token,
-                    confidence=0.92,
-                    bbox=bbox,
-                    page_number=page_number
-                )
+                bbox = BoundingBox(x_min=curr_x, y_min=curr_y, x_max=curr_x + w_width, y_max=curr_y + 18)
+                w_obj = OCRWord(text=token, confidence=0.92, bbox=bbox, page_number=page_number)
                 line_words.append(w_obj)
                 words.append(w_obj)
                 curr_x += w_width + 6
 
             line_bbox = BoundingBox(
-                x_min=min(w.bbox.x_min for w in line_words),
-                y_min=min(w.bbox.y_min for w in line_words),
-                x_max=max(w.bbox.x_max for w in line_words),
-                y_max=max(w.bbox.y_max for w in line_words)
+                x_min=min(w.bbox.x_min for w in line_words), y_min=min(w.bbox.y_min for w in line_words), x_max=max(w.bbox.x_max for w in line_words), y_max=max(w.bbox.y_max for w in line_words)
             )
-            lines.append(OCRLine(
-                line_text=line_str,
-                bbox=line_bbox,
-                words=line_words
-            ))
+            lines.append(OCRLine(line_text=line_str, bbox=line_bbox, words=line_words))
             curr_y += 30
 
-        pages.append(OCRPage(
-            page_number=page_number,
-            width=612,
-            height=792,
-            text=page_text,
-            words=words,
-            lines=lines
-        ))
+        pages.append(OCRPage(page_number=page_number, width=612, height=792, text=page_text, words=words, lines=lines))
 
     return pages

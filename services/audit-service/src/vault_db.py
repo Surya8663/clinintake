@@ -15,8 +15,10 @@ from src.logger import logger
 class Base(DeclarativeBase):
     pass
 
+
 class AuditVaultImmutableError(Exception):
     """Raised when an UPDATE or DELETE operation is attempted on Audit Vault."""
+
 
 class AuditVaultRecord(Base):
     __tablename__ = "audit_vault"
@@ -32,22 +34,27 @@ class AuditVaultRecord(Base):
     hmac_signature: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[str] = mapped_column(String(64), nullable=False)
 
+
 # ENFORCE STRICT APPEND-ONLY IMMUTABILITY AT ORM / DB LAYER
 @event.listens_for(AuditVaultRecord, "before_update")
 def block_audit_vault_update(mapper, connection, target):
     logger.error("Security Violation: Attempted UPDATE on Audit Vault entry!")
     raise AuditVaultImmutableError("Audit Vault records are append-only. UPDATE operations are strictly forbidden.")
 
+
 @event.listens_for(AuditVaultRecord, "before_delete")
 def block_audit_vault_delete(mapper, connection, target):
     logger.error("Security Violation: Attempted DELETE on Audit Vault entry!")
     raise AuditVaultImmutableError("Audit Vault records are append-only. DELETE operations are strictly forbidden.")
 
+
 engine = create_async_engine(settings.vault_database_url, echo=False)
+
 
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
 
 async def insert_audit_event(session: AsyncSession, event_id: str, document_id: str, service_name: str, event_type: str, payload: dict[str, Any], timestamp: str | None = None) -> AuditVaultRecord:
     """Computes hash-chaining and HMAC signature, then appends to Audit Vault."""
@@ -72,7 +79,7 @@ async def insert_audit_event(session: AsyncSession, event_id: str, document_id: 
         prev_hash=prev_hash,
         entry_hash=entry_hash,
         hmac_signature=signature,
-        created_at=created_at
+        created_at=created_at,
     )
 
     session.add(record)

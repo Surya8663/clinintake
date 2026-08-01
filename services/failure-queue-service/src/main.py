@@ -7,11 +7,7 @@ from src.dlq_engine import enqueue_failure_item, execute_retry, list_dlq_items
 from src.logger import logger
 from src.models import Base, DLQSummaryResponse, FailureEnqueueRequest, FailureItemResponse
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Dead-Letter Queue with Retry Tracking and Manual Escalation",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Dead-Letter Queue with Retry Tracking and Manual Escalation", version="1.0.0")
 
 
 @app.on_event("startup")
@@ -22,11 +18,7 @@ async def startup_event():
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name,
-        "max_retries": settings.max_retries
-    }
+    return {"status": "ok", "service": settings.service_name, "max_retries": settings.max_retries}
 
 
 @app.post("/failure/enqueue", response_model=FailureItemResponse)
@@ -50,8 +42,4 @@ async def get_dlq_summary(db: AsyncSession = Depends(get_db)):
     """Lists dead-letter queue items requiring manual intervention."""
     items = await list_dlq_items(db)
     manual_count = sum(1 for item in items if item.status == "manual_review")
-    return DLQSummaryResponse(
-        total_items=len(items),
-        manual_review_items=manual_count,
-        items=items
-    )
+    return DLQSummaryResponse(total_items=len(items), manual_review_items=manual_count, items=items)

@@ -3,6 +3,7 @@ Structured error types for the ClinIntake platform.
 Every service must raise typed errors that are mapped to HTTP status codes
 and audit event payloads. Never catch broad exceptions and continue as success.
 """
+
 from enum import StrEnum
 
 
@@ -48,6 +49,7 @@ class ErrorCode(StrEnum):
 
 class ClinIntakeError(Exception):
     """Base exception for all ClinIntake typed errors."""
+
     def __init__(
         self,
         code: ErrorCode,
@@ -92,35 +94,19 @@ class PatientIdentityMismatchError(ClinIntakeError):
 
 class InsufficientGuidelineEvidenceError(ClinIntakeError):
     def __init__(self, measure: str, **kwargs):
-        super().__init__(
-            ErrorCode.INSUFFICIENT_GUIDELINE_EVIDENCE,
-            f"Insufficient guideline evidence for measure: {measure}",
-            **kwargs
-        )
+        super().__init__(ErrorCode.INSUFFICIENT_GUIDELINE_EVIDENCE, f"Insufficient guideline evidence for measure: {measure}", **kwargs)
 
 
 class PromptInjectionDetectedError(ClinIntakeError):
     def __init__(self, **kwargs):
-        super().__init__(
-            ErrorCode.PROMPT_INJECTION_DETECTED,
-            "Adversarial prompt injection detected. Document quarantined for security review.",
-            **kwargs
-        )
+        super().__init__(ErrorCode.PROMPT_INJECTION_DETECTED, "Adversarial prompt injection detected. Document quarantined for security review.", **kwargs)
 
 
 class EHRWriteUnauthorizedError(ClinIntakeError):
     def __init__(self, **kwargs):
-        super().__init__(
-            ErrorCode.EHR_WRITE_UNAUTHORIZED,
-            "EHR write requires orchestrator-issued write authorization token bound to this document.",
-            **kwargs
-        )
+        super().__init__(ErrorCode.EHR_WRITE_UNAUTHORIZED, "EHR write requires orchestrator-issued write authorization token bound to this document.", **kwargs)
 
 
 class DependencyUnavailableError(ClinIntakeError):
     def __init__(self, service_name: str, **kwargs):
-        super().__init__(
-            ErrorCode.DEPENDENCY_UNAVAILABLE,
-            f"Required dependency '{service_name}' is unavailable. Workflow preserved for retry.",
-            **kwargs
-        )
+        super().__init__(ErrorCode.DEPENDENCY_UNAVAILABLE, f"Required dependency '{service_name}' is unavailable. Workflow preserved for retry.", **kwargs)

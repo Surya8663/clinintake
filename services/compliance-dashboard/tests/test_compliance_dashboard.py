@@ -13,6 +13,7 @@ from src.main import app
 
 client = TestClient(app)
 
+
 def get_auth_header():
     now = int(time.time())
     exp = now + 900
@@ -29,19 +30,21 @@ def get_auth_header():
         "iss": "http://localhost:8085/realms/clinintake",
         "aud": "clinintake-bff",
         "iat": now,
-        "exp": exp
+        "exp": exp,
     }
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
-    sig = hmac.new(b"test_compliance_secret_key_2026", message.encode('utf-8'), hashlib.sha256).digest()
+    sig = hmac.new(b"test_compliance_secret_key_2026", message.encode("utf-8"), hashlib.sha256).digest()
     token = f"{message}.{_b64_encode(sig)}"
     return {"Authorization": f"Bearer {token}"}
+
 
 def test_compliance_dashboard_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
 
 def test_compliance_audit_trail_queries_via_api():
     headers = get_auth_header()
@@ -50,6 +53,7 @@ def test_compliance_audit_trail_queries_via_api():
     data = response.json()
     assert "total_records" in data
     assert "records" in data
+
 
 def test_compliance_vault_integrity_check():
     headers = get_auth_header()

@@ -6,12 +6,7 @@ from src.config import settings
 from src.logger import logger
 
 
-async def fetch_audit_events_via_api(
-    document_id: str | None = None,
-    service_name: str | None = None,
-    event_type: str | None = None,
-    auth_token: str | None = None
-) -> dict[str, Any]:
+async def fetch_audit_events_via_api(document_id: str | None = None, service_name: str | None = None, event_type: str | None = None, auth_token: str | None = None) -> dict[str, Any]:
     """
     Fetches audit trail logs EXCLUSIVELY via audit-service REST API endpoint GET /audit/events.
     Forwards verified Bearer auth token for authorization.
@@ -46,12 +41,8 @@ async def fetch_audit_events_via_api(
                 return {"total_records": 0, "records": []}
     except Exception as e:
         logger.warning(f"Failed to query audit-service REST API ({e}). Service unreachable.")
-        return {
-            "total_records": 0,
-            "records": [],
-            "error": "audit-service unreachable",
-            "status": "error"
-        }
+        return {"total_records": 0, "records": [], "error": "audit-service unreachable", "status": "error"}
+
 
 async def fetch_vault_integrity_via_api(auth_token: str | None = None) -> dict[str, Any]:
     """Fetches cryptographic vault integrity verification via audit-service REST API GET /audit/verify."""
@@ -68,7 +59,4 @@ async def fetch_vault_integrity_via_api(auth_token: str | None = None) -> dict[s
     except Exception as e:
         logger.warning(f"Failed to query vault integrity API ({e})")
 
-    return {
-        "status": "unreachable",
-        "error": "vault integrity check unavailable"
-    }
+    return {"status": "unreachable", "error": "vault integrity check unavailable"}

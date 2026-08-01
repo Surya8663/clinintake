@@ -4,6 +4,7 @@ Replaces the previously in-memory _DLQ_STORE dict with durable SQL persistence.
 Supports exponential backoff retry scheduling, dead-letter escalation,
 and authenticated clinician manual re-drive.
 """
+
 import datetime
 import logging
 import random
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def _next_retry_at(retry_count: int, base_delay_s: float = 30.0) -> datetime.datetime:
     """Calculate next retry timestamp using exponential backoff with jitter."""
-    delay = base_delay_s * (2 ** retry_count) + random.uniform(0, 5)
+    delay = base_delay_s * (2**retry_count) + random.uniform(0, 5)
     return datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=delay)
 
 
@@ -33,9 +34,7 @@ async def enqueue_failure_item(
     Upon retry exhaustion, escalates to manual_review dead-letter state.
     """
     now = datetime.datetime.now(datetime.UTC)
-    result = await db.execute(
-        select(FailureQueueRecord).where(FailureQueueRecord.document_id == request.document_id)
-    )
+    result = await db.execute(select(FailureQueueRecord).where(FailureQueueRecord.document_id == request.document_id))
     existing = result.scalar_one_or_none()
 
     if existing:
@@ -43,10 +42,7 @@ async def enqueue_failure_item(
         existing.error_message = request.error_message
         if existing.retry_count >= settings.max_retries:
             existing.status = "manual_review"
-            logger.warning(
-                f"DLQ: Retries exhausted for doc_id={request.document_id} "
-                f"({existing.retry_count}/{settings.max_retries}). Escalated to manual_review."
-            )
+            logger.warning(f"DLQ: Retries exhausted for doc_id={request.document_id} " f"({existing.retry_count}/{settings.max_retries}). Escalated to manual_review.")
         else:
             existing.status = "queued"
             existing.next_retry_at = _next_retry_at(existing.retry_count)
@@ -74,9 +70,7 @@ async def enqueue_failure_item(
 
 async def execute_retry(db: AsyncSession, document_id: str) -> FailureItemResponse:
     """Attempt to retry document; raises if not found or retries exhausted."""
-    result = await db.execute(
-        select(FailureQueueRecord).where(FailureQueueRecord.document_id == document_id)
-    )
+    result = await db.execute(select(FailureQueueRecord).where(FailureQueueRecord.document_id == document_id))
     record = result.scalar_one_or_none()
     if not record:
         raise KeyError(f"Document '{document_id}' not found in failure queue.")
@@ -103,16 +97,12 @@ async def manual_redrive(
     Authenticated clinician manually re-drives a dead-letter document.
     Resets retry_count and status, records who initiated the re-drive.
     """
-    result = await db.execute(
-        select(FailureQueueRecord).where(FailureQueueRecord.document_id == document_id)
-    )
+    result = await db.execute(select(FailureQueueRecord).where(FailureQueueRecord.document_id == document_id))
     record = result.scalar_one_or_none()
     if not record:
         raise KeyError(f"Document '{document_id}' not found in failure queue for re-drive.")
     if record.status != "manual_review":
-        raise ValueError(
-            f"Document '{document_id}' is not in manual_review state (current: {record.status})."
-        )
+        raise ValueError(f"Document '{document_id}' is not in manual_review state (current: {record.status}).")
 
     record.retry_count = 0
     record.status = "re_driven_queued"
@@ -121,9 +111,7 @@ async def manual_redrive(
     record.next_retry_at = _next_retry_at(0)
     await db.commit()
     await db.refresh(record)
-    logger.info(
-        f"DLQ: Authenticated re-drive of doc_id={document_id} by clinician={redriven_by}"
-    )
+    logger.info(f"DLQ: Authenticated re-drive of doc_id={document_id} by clinician={redriven_by}")
     return FailureItemResponse.model_validate(record)
 
 

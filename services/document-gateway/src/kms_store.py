@@ -26,10 +26,7 @@ class EncryptedClinicalDocStore:
         with open(file_path, "wb") as f:
             f.write(encrypted_data)
 
-        logger.info(
-            "Document encrypted and saved to Clinical Document Store.",
-            extra={"document_id": document_id, "file_path": file_path}
-        )
+        logger.info("Document encrypted and saved to Clinical Document Store.", extra={"document_id": document_id, "file_path": file_path})
         return os.path.abspath(file_path)
 
     def read_decrypted_file(self, document_id: str) -> bytes:
@@ -51,5 +48,6 @@ class EncryptedClinicalDocStore:
         except Exception as e:
             logger.error(f"Cryptographic key mismatch or payload corruption for {document_id}")
             raise e
+
 
 doc_store = EncryptedClinicalDocStore()

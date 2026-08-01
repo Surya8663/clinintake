@@ -5,18 +5,13 @@ from src.interaction_checker import check_all_interactions
 from src.logger import logger
 from src.models import InteractionCheckRequest, InteractionCheckResponse
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Deterministic Drug-Drug and Drug-Allergy Interaction Microservice",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Deterministic Drug-Drug and Drug-Allergy Interaction Microservice", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name
-    }
+    return {"status": "ok", "service": settings.service_name}
+
 
 @app.post("/interactions/check", response_model=InteractionCheckResponse)
 async def check_interactions(request: InteractionCheckRequest):

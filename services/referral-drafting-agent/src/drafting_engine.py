@@ -3,13 +3,7 @@ from src.logger import logger
 from src.models import GroundedEvidenceItem, ReferralDraftRequest, ReferralDraftResponse
 
 
-def _build_deterministic_letter(
-    patient_id: str,
-    specialty: str,
-    urgency: str,
-    reasons: list[str],
-    evidence_items: list[GroundedEvidenceItem]
-) -> str:
+def _build_deterministic_letter(patient_id: str, specialty: str, urgency: str, reasons: list[str], evidence_items: list[GroundedEvidenceItem]) -> str:
     """Fallback deterministic letter layout if LLM call is unavailable or fails."""
     reasons_formatted = "\n- ".join(reasons)
     letter_text = (
@@ -25,14 +19,11 @@ def _build_deterministic_letter(
     )
 
     for ev in evidence_items:
-        letter_text += f"- [{ev.section} / {ev.clause_id}]: \"{ev.source_quote}\"\n"
+        letter_text += f'- [{ev.section} / {ev.clause_id}]: "{ev.source_quote}"\n'
 
-    letter_text += (
-        "\nThank you for seeing this patient in consultation.\n\n"
-        "Sincerely,\n"
-        "Referring Clinician / ClinIntake System"
-    )
+    letter_text += "\nThank you for seeing this patient in consultation.\n\n" "Sincerely,\n" "Referring Clinician / ClinIntake System"
     return letter_text
+
 
 def generate_referral_draft_letter(request: ReferralDraftRequest) -> ReferralDraftResponse:
     """
@@ -68,11 +59,7 @@ def generate_referral_draft_letter(request: ReferralDraftRequest) -> ReferralDra
     # 3. Deterministic evidence collection
     passages = pkg.get("guideline_passages", [])
     for p in passages:
-        evidence_items.append(GroundedEvidenceItem(
-            source_quote=p.get("passage_text", ""),
-            section=p.get("section", "Recommendation"),
-            clause_id=p.get("clause_id", "CLAUSE-01")
-        ))
+        evidence_items.append(GroundedEvidenceItem(source_quote=p.get("passage_text", ""), section=p.get("section", "Recommendation"), clause_id=p.get("clause_id", "CLAUSE-01")))
 
     if not reasons:
         reasons.append(f"Routine specialist evaluation for {specialty}.")
@@ -82,14 +69,10 @@ def generate_referral_draft_letter(request: ReferralDraftRequest) -> ReferralDra
     if settings.llm_api_key:
         try:
             from src.llm_client import call_llm_referral_draft
+
             evidence_dicts = [ev.model_dump() for ev in evidence_items]
             letter_text = call_llm_referral_draft(
-                patient_id=patient_id,
-                target_specialty=specialty,
-                urgency_level=urgency,
-                clinical_reasons=reasons,
-                evidence_items=evidence_dicts,
-                document_id=request.document_id
+                patient_id=patient_id, target_specialty=specialty, urgency_level=urgency, clinical_reasons=reasons, evidence_items=evidence_dicts, document_id=request.document_id
             )
         except Exception as e:
             logger.error(f"LLM referral letter drafting failed: {e}. Using deterministic layout fallback.")
@@ -105,5 +88,5 @@ def generate_referral_draft_letter(request: ReferralDraftRequest) -> ReferralDra
         urgency_level=urgency,
         referral_letter_text=letter_text,
         clinical_reasons=reasons,
-        grounded_evidence=evidence_items
+        grounded_evidence=evidence_items,
     )

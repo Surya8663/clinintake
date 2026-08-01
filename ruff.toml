@@ -61,8 +61,7 @@ ignore = [
     # SIM401: if-else block instead of dict.get — readability preference.
     "SIM401",
 
-    # RUF059: unused unpacked variable — underscore convention varies across services.
-    "RUF059",
+
 
     # F841: unused variable — some services intentionally bind for side effects.
     "F841",

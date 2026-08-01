@@ -6,26 +6,37 @@ references that would break in deployed environments.
 
 Exit code 0 = clean, 1 = findings.
 """
+
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 LOCALHOST_PATTERNS = [
-    (r'https?://localhost[:/]', "Hardcoded localhost URL"),
-    (r'https?://127\.0\.0\.1[:/]', "Hardcoded 127.0.0.1 URL"),
+    (r"https?://localhost[:/]", "Hardcoded localhost URL"),
+    (r"https?://127\.0\.0\.1[:/]", "Hardcoded 127.0.0.1 URL"),
 ]
 
 EXCLUDE_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv",
-    "dist", "build", ".pytest_cache", ".mypy_cache", ".ruff_cache",
-    "scripts", "docs",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "scripts",
+    "docs",
 }
 
 # Files where localhost is expected (configs use Field defaults for local dev)
 EXCLUDE_FILES = {
-    ".env.example", "docker-compose.yml",
+    ".env.example",
+    "docker-compose.yml",
 }
 
 INCLUDE_EXTENSIONS = {".py", ".ts", ".tsx"}

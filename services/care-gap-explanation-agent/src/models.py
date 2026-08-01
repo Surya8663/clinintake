@@ -12,6 +12,7 @@ class ClinicalDecisionPackage(BaseModel):
     safety_assessment: dict[str, Any] = Field(default_factory=dict, description="NEWS2, qSOFA, and red flags")
     guideline_passages: list[dict[str, Any]] = Field(default_factory=list, description="USPSTF retrieved passages with section/clause metadata")
 
+
 class CitationItem(BaseModel):
     source_title: str
     version: str
@@ -19,6 +20,7 @@ class CitationItem(BaseModel):
     clause_id: str
     passage_text: str
     similarity_score: float
+
 
 class GuidelinePassage(BaseModel):
     clause_id: str
@@ -29,9 +31,11 @@ class GuidelinePassage(BaseModel):
     passage_text: str = ""
     similarity_score: float = 0.0
 
+
 class DocumentSpanItem(BaseModel):
     field_name: str
     source_quote: str
+
 
 class CareGapExplanationResponse(BaseModel):
     document_id: str

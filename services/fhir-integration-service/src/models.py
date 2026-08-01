@@ -9,6 +9,7 @@ class FHIRTransactionRequest(BaseModel):
     idempotency_key: str = Field(..., description="Unique client idempotency key to prevent duplicate writes")
     fhir_resources: list[dict[str, Any]] = Field(default_factory=list, description="List of valid FHIR R4 resources to bundle")
 
+
 class FHIRTransactionResponse(BaseModel):
     document_id: str
     status: str = Field(..., description="'persisted' or 'no_op_duplicate_suppressed'")

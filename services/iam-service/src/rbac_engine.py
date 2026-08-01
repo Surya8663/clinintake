@@ -15,7 +15,7 @@ ROLE_SCOPES: dict[str, list[str]] = {
     "COMPLIANCE_REVIEWER": ["compliance:audit:read"],
     "QUALITY_REVIEWER": ["quality:metrics:read"],
     "ADMIN": ["admin:system", "clinician:review", "clinician:approve", "clinician:reject", "compliance:audit:read", "quality:metrics:read"],
-    "CLINICAL_AGENT": ["service:internal"]
+    "CLINICAL_AGENT": ["service:internal"],
 }
 
 # Role mapping for dev provisioning
@@ -23,8 +23,9 @@ DEV_USER_ROLES: dict[str, tuple[str, str, list[str]]] = {
     "dr_smith": ("ClinicianPass123!", "TREATING_CLINICIAN", ["clinician:review", "clinician:approve", "clinician:reject"]),
     "auditor_jane": ("AuditorPass123!", "COMPLIANCE_REVIEWER", ["compliance:audit:read"]),
     "quality_reviewer": ("QualityPass123!", "QUALITY_REVIEWER", ["quality:metrics:read"]),
-    "admin_user": ("AdminPass123!", "ADMIN", ["admin:system", "clinician:review", "clinician:approve", "clinician:reject", "compliance:audit:read", "quality:metrics:read"])
+    "admin_user": ("AdminPass123!", "ADMIN", ["admin:system", "clinician:review", "clinician:approve", "clinician:reject", "compliance:audit:read", "quality:metrics:read"]),
 }
+
 
 def authenticate_user_oidc(username: str, password: str, mfa_code: str | None = None) -> tuple[bool, str | None, list[str] | None, str | None]:
     """
@@ -65,19 +66,15 @@ def create_short_lived_jwt_access_token(username: str, role: str, scopes: list[s
         "iss": f"{settings.keycloak_url}/realms/{settings.keycloak_realm}",
         "aud": settings.keycloak_client_id,
         "iat": now,
-        "exp": exp
+        "exp": exp,
     }
 
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
 
     jwt_key = get_secret("JWT_SECRET_KEY", default=settings.jwt_secret_key)
-    signature = hmac.new(
-        jwt_key.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).digest()
+    signature = hmac.new(jwt_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
     sig_b64 = _b64_encode(signature)
 
     token = f"{message}.{sig_b64}"
@@ -107,19 +104,15 @@ def create_m2m_service_token(client_id: str, client_secret: str) -> tuple[str, i
         "iss": f"{settings.keycloak_url}/realms/{settings.keycloak_realm}",
         "aud": "clinintake-backend-services",
         "iat": now,
-        "exp": exp
+        "exp": exp,
     }
 
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
 
     jwt_key = get_secret("JWT_SECRET_KEY", default=settings.jwt_secret_key)
-    signature = hmac.new(
-        jwt_key.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).digest()
+    signature = hmac.new(jwt_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
     sig_b64 = _b64_encode(signature)
 
     token = f"{message}.{sig_b64}"
@@ -142,22 +135,7 @@ def verify_jwt_token_scopes(token: str, required_scope: str | None = None, requi
         if required_role:
             has_role = required_role in roles
 
-        return {
-            "valid": True,
-            "username": username,
-            "role": roles[0] if roles else None,
-            "roles": roles,
-            "scopes": scopes,
-            "has_scope": has_scope,
-            "has_role": has_role
-        }
+        return {"valid": True, "username": username, "role": roles[0] if roles else None, "roles": roles, "scopes": scopes, "has_scope": has_scope, "has_role": has_role}
     except Exception as e:
         logger.warning(f"JWT Verification failed: {e}")
-        return {
-            "valid": False,
-            "roles": [],
-            "scopes": [],
-            "has_scope": False,
-            "has_role": False,
-            "error": str(e)
-        }
+        return {"valid": False, "roles": [], "scopes": [], "has_scope": False, "has_role": False, "error": str(e)}

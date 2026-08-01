@@ -3,6 +3,7 @@ Shared circuit breaker implementation for all outbound HTTP calls.
 Uses exponential backoff with jitter and raises typed errors on failure.
 Never catches broad exceptions and continues as success.
 """
+
 import asyncio
 from collections.abc import Callable
 from enum import StrEnum
@@ -17,13 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 class CircuitState(StrEnum):
-    CLOSED = "closed"       # Normal operation
-    OPEN = "open"           # Failing - reject calls fast
-    HALF_OPEN = "half_open" # Probing recovery
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing - reject calls fast
+    HALF_OPEN = "half_open"  # Probing recovery
 
 
 class CircuitBreakerOpen(Exception):
     """Raised when circuit breaker is open and calls are being rejected."""
+
     def __init__(self, service_name: str):
         self.service_name = service_name
         super().__init__(f"Circuit breaker OPEN for service '{service_name}'. Outbound call rejected.")
@@ -34,6 +36,7 @@ class CircuitBreaker:
     Production circuit breaker with exponential backoff and jitter.
     Integrates with the structured audit event bus on state transitions.
     """
+
     def __init__(
         self,
         service_name: str,
@@ -70,9 +73,7 @@ class CircuitBreaker:
         self._failure_count += 1
         self._last_failure_time = time.monotonic()
         if self._failure_count >= self.failure_threshold:
-            logger.error(
-                f"CircuitBreaker({self.service_name}): Failure threshold reached ({self._failure_count}). Transitioning -> OPEN"
-            )
+            logger.error(f"CircuitBreaker({self.service_name}): Failure threshold reached ({self._failure_count}). Transitioning -> OPEN")
             self._state = CircuitState.OPEN
 
     async def call(self, fn: Callable, *args, **kwargs) -> Any:
@@ -113,6 +114,7 @@ async def http_call_with_retry(
 
     for attempt in range(1, max_attempts + 1):
         try:
+
             async def _do_request():
                 return await client.request(method, url, timeout=timeout_s, **kwargs)
 
@@ -127,10 +129,7 @@ async def http_call_with_retry(
             last_exc = exc
             if attempt < max_attempts:
                 delay = base_delay_s * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
-                logger.warning(
-                    f"HTTP call to {url} failed (attempt {attempt}/{max_attempts}): {exc}. "
-                    f"Retrying in {delay:.2f}s..."
-                )
+                logger.warning(f"HTTP call to {url} failed (attempt {attempt}/{max_attempts}): {exc}. " f"Retrying in {delay:.2f}s...")
                 await asyncio.sleep(delay)
             else:
                 logger.exception(f"HTTP call to {url} exhausted all {max_attempts} retry attempts.")

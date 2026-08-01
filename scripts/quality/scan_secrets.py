@@ -7,9 +7,10 @@ Excludes .env.example, test files, docs, and node_modules.
 
 Exit code 0 = clean, 1 = findings.
 """
+
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -23,16 +24,26 @@ SECRET_PATTERNS = [
     (r"L_U1X0b44v87gD2WvLgA_90f23JmH_fGfHjKsJ0G2k4=", "Known hardcoded Fernet key"),
     # Generic patterns for password/secret in default values
     (r'default\s*=\s*["\'].*(?:password|passwd|secret|token).*["\']', "Default value containing password/secret/token"),
-    (r'dev_user:dev_password', "Hardcoded dev credentials in connection string"),
+    (r"dev_user:dev_password", "Hardcoded dev credentials in connection string"),
 ]
 
 EXCLUDE_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv",
-    "dist", "build", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
 }
 
 EXCLUDE_FILES = {
-    ".env.example", "remediation-baseline.md", "repository-inventory.md",
+    ".env.example",
+    "remediation-baseline.md",
+    "repository-inventory.md",
     "scan_secrets.py",  # This script itself
 }
 

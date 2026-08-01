@@ -18,14 +18,18 @@ from src.vault_db import AuditVaultImmutableError, AuditVaultRecord, Base, engin
 
 client = TestClient(app)
 
+
 @pytest.fixture(autouse=True, scope="module")
 def reset_db():
     import asyncio
+
     async def _reset():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
+
     asyncio.run(_reset())
+
 
 def get_auth_header(roles=["compliance:audit:read", "service:internal"]):
     now = int(time.time())
@@ -42,28 +46,25 @@ def get_auth_header(roles=["compliance:audit:read", "service:internal"]):
         "iss": "http://localhost:8085/realms/clinintake",
         "aud": "clinintake-bff",
         "iat": now,
-        "exp": exp
+        "exp": exp,
     }
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
-    sig = hmac.new(b"test_audit_jwt_secret_2026", message.encode('utf-8'), hashlib.sha256).digest()
+    sig = hmac.new(b"test_audit_jwt_secret_2026", message.encode("utf-8"), hashlib.sha256).digest()
     token = f"{message}.{_b64_encode(sig)}"
     return {"Authorization": f"Bearer {token}"}
+
 
 def test_audit_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+
 def test_record_and_query_audit_event():
     headers = get_auth_header()
-    event_payload = {
-        "document_id": "DOC-AUDIT-100",
-        "service_name": "document-gateway",
-        "event_type": "DOCUMENT_INGESTED",
-        "payload": {"file_name": "patient_chart.pdf", "file_size": 2048}
-    }
+    event_payload = {"document_id": "DOC-AUDIT-100", "service_name": "document-gateway", "event_type": "DOCUMENT_INGESTED", "payload": {"file_name": "patient_chart.pdf", "file_size": 2048}}
 
     response = client.post("/audit/events", json=event_payload, headers=headers)
     assert response.status_code == 200
@@ -80,6 +81,7 @@ def test_record_and_query_audit_event():
     assert query_data["total_records"] >= 1
     assert query_data["records"][0]["document_id"] == "DOC-AUDIT-100"
 
+
 def test_verify_hashchain_integrity():
     headers = get_auth_header()
     response = client.get("/audit/verify", headers=headers)
@@ -88,16 +90,12 @@ def test_verify_hashchain_integrity():
     assert data["status"] == "intact"
     assert data["total_verified"] >= 1
 
+
 @pytest.mark.anyio
 async def test_audit_vault_update_and_delete_operations_rejected():
     async with AsyncSession(engine) as session:
         rec = await insert_audit_event(
-            session=session,
-            event_id="EVT-IMMUTABLE-01",
-            document_id="DOC-IMMUTABLE-01",
-            service_name="orchestrator",
-            event_type="WORKFLOW_STARTED",
-            payload={"status": "init"}
+            session=session, event_id="EVT-IMMUTABLE-01", document_id="DOC-IMMUTABLE-01", service_name="orchestrator", event_type="WORKFLOW_STARTED", payload={"status": "init"}
         )
         rec_id = rec.id
         assert rec_id is not None

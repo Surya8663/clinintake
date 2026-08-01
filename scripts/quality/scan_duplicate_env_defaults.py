@@ -6,10 +6,11 @@ with different default values.
 
 Exit code 0 = clean, 1 = conflicts found.
 """
-import re
-import sys
+
 from collections import defaultdict
 from pathlib import Path
+import re
+import sys
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -71,7 +72,7 @@ def main() -> int:
     for var_name, occurrences in conflicts:
         print(f"  Variable: {var_name}")
         for filepath, default_val, line_num in occurrences:
-            print(f"    {filepath}:{line_num} -> default=\"{default_val}\"")
+            print(f'    {filepath}:{line_num} -> default="{default_val}"')
         print()
 
     return 1

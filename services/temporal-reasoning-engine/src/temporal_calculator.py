@@ -16,7 +16,7 @@ def calculate_temporal_care_gap(request: TemporalEvaluateRequest) -> TemporalEva
             status="insufficient-information",
             months_since_last_screening=None,
             next_due_date=None,
-            rationale="Missing last screening date in patient clinical record."
+            rationale="Missing last screening date in patient clinical record.",
         )
 
     if request.patient_age is None or request.patient_age <= 0:
@@ -25,7 +25,7 @@ def calculate_temporal_care_gap(request: TemporalEvaluateRequest) -> TemporalEva
             status="insufficient-information",
             months_since_last_screening=None,
             next_due_date=None,
-            rationale="Missing or invalid patient age for guideline evaluation."
+            rationale="Missing or invalid patient age for guideline evaluation.",
         )
 
     try:
@@ -37,7 +37,7 @@ def calculate_temporal_care_gap(request: TemporalEvaluateRequest) -> TemporalEva
             status="insufficient-information",
             months_since_last_screening=None,
             next_due_date=None,
-            rationale=f"Invalid date format: {request.last_screening_date}"
+            rationale=f"Invalid date format: {request.last_screening_date}",
         )
 
     ref_date = parse_date(request.reference_date).date() if request.reference_date else datetime.date.today()
@@ -68,10 +68,4 @@ def calculate_temporal_care_gap(request: TemporalEvaluateRequest) -> TemporalEva
 
     logger.info(f"Temporal evaluation procedure='{request.procedure_name}': status={status}, months_elapsed={months_elapsed}")
 
-    return TemporalEvaluateResponse(
-        procedure_name=request.procedure_name,
-        status=status,
-        months_since_last_screening=months_elapsed,
-        next_due_date=next_due.isoformat(),
-        rationale=rationale
-    )
+    return TemporalEvaluateResponse(procedure_name=request.procedure_name, status=status, months_since_last_screening=months_elapsed, next_due_date=next_due.isoformat(), rationale=rationale)

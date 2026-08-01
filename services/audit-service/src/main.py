@@ -22,38 +22,24 @@ async def lifespan(app: FastAPI):
     await init_db()
     yield
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Cryptographic Append-Only Audit Vault Microservice",
-    version="2.0.0",
-    lifespan=lifespan
-)
+
+app = FastAPI(title=settings.service_name, description="Cryptographic Append-Only Audit Vault Microservice", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name
-    }
+    return {"status": "ok", "service": settings.service_name}
+
 
 @app.post("/audit/events", response_model=AuditRecordResponse)
-async def create_audit_event(
-    event: AuditEventCreate,
-    claims: dict[str, Any] = Depends(require_roles(["service:internal", "compliance:audit:read", "clinician:approve", "admin:system"]))
-):
+async def create_audit_event(event: AuditEventCreate, claims: dict[str, Any] = Depends(require_roles(["service:internal", "compliance:audit:read", "clinician:approve", "admin:system"]))):
     """Directly records a signed, append-only audit event into Audit Vault."""
     event_id = event.event_id or str(uuid.uuid4())
     async with AsyncSession(engine) as session:
         record = await insert_audit_event(
-            session=session,
-            event_id=event_id,
-            document_id=event.document_id,
-            service_name=event.service_name,
-            event_type=event.event_type,
-            payload=event.payload,
-            timestamp=event.timestamp
+            session=session, event_id=event_id, document_id=event.document_id, service_name=event.service_name, event_type=event.event_type, payload=event.payload, timestamp=event.timestamp
         )
 
         return AuditRecordResponse(
@@ -66,8 +52,9 @@ async def create_audit_event(
             prev_hash=record.prev_hash,
             entry_hash=record.entry_hash,
             hmac_signature=record.hmac_signature,
-            created_at=record.created_at
+            created_at=record.created_at,
         )
+
 
 @app.get("/audit/events", response_model=AuditQueryResponse)
 async def query_audit_trail(
@@ -75,7 +62,7 @@ async def query_audit_trail(
     service_name: str | None = Query(None, description="Filter by service name"),
     event_type: str | None = Query(None, description="Filter by event type"),
     limit: int = Query(50, ge=1, le=500),
-    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
+    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"])),
 ):
     """Exposes query API for Compliance Dashboard to retrieve signed audit logs, enforcing Keycloak OIDC roles."""
     await init_db()
@@ -103,19 +90,16 @@ async def query_audit_trail(
                 prev_hash=r.prev_hash,
                 entry_hash=r.entry_hash,
                 hmac_signature=r.hmac_signature,
-                created_at=r.created_at
-            ) for r in records
+                created_at=r.created_at,
+            )
+            for r in records
         ]
 
-        return AuditQueryResponse(
-            total_records=len(output_list),
-            records=output_list
-        )
+        return AuditQueryResponse(total_records=len(output_list), records=output_list)
+
 
 @app.get("/audit/verify", response_model=IntegrityVerifyResponse)
-async def verify_audit_vault_integrity(
-    claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))
-):
+async def verify_audit_vault_integrity(claims: dict[str, Any] = Depends(require_roles(["compliance:audit:read", "service:internal", "admin:system"]))):
     """Cryptographically verifies hash chain and HMAC signature integrity across all Audit Vault entries."""
     await init_db()
     async with AsyncSession(engine) as session:
@@ -124,45 +108,22 @@ async def verify_audit_vault_integrity(
         records = result.scalars().all()
 
         if not records:
-            return IntegrityVerifyResponse(
-                status="intact",
-                total_verified=0,
-                details="Audit Vault is empty."
-            )
+            return IntegrityVerifyResponse(status="intact", total_verified=0, details="Audit Vault is empty.")
 
         prev_hash = "0000000000000000000000000000000000000000000000000000000000000000"
         for r in records:
             if r.prev_hash != prev_hash:
                 return IntegrityVerifyResponse(
-                    status="compromised",
-                    total_verified=r.id - 1,
-                    failed_entry_id=r.id,
-                    details=f"Hash chain broken at entry id={r.id}: expected prev_hash={prev_hash}, found={r.prev_hash}"
+                    status="compromised", total_verified=r.id - 1, failed_entry_id=r.id, details=f"Hash chain broken at entry id={r.id}: expected prev_hash={prev_hash}, found={r.prev_hash}"
                 )
 
-            computed_hash = compute_entry_hash(
-                r.prev_hash, r.event_id, r.document_id, r.service_name, r.event_type, r.payload_json, r.created_at
-            )
+            computed_hash = compute_entry_hash(r.prev_hash, r.event_id, r.document_id, r.service_name, r.event_type, r.payload_json, r.created_at)
             if computed_hash != r.entry_hash:
-                return IntegrityVerifyResponse(
-                    status="compromised",
-                    total_verified=r.id - 1,
-                    failed_entry_id=r.id,
-                    details=f"Entry hash mismatch at entry id={r.id}"
-                )
+                return IntegrityVerifyResponse(status="compromised", total_verified=r.id - 1, failed_entry_id=r.id, details=f"Entry hash mismatch at entry id={r.id}")
 
             if not verify_entry_hmac(r.entry_hash, r.hmac_signature):
-                return IntegrityVerifyResponse(
-                    status="compromised",
-                    total_verified=r.id - 1,
-                    failed_entry_id=r.id,
-                    details=f"HMAC signature invalid at entry id={r.id}"
-                )
+                return IntegrityVerifyResponse(status="compromised", total_verified=r.id - 1, failed_entry_id=r.id, details=f"HMAC signature invalid at entry id={r.id}")
 
             prev_hash = r.entry_hash
 
-        return IntegrityVerifyResponse(
-            status="intact",
-            total_verified=len(records),
-            details=f"All {len(records)} Audit Vault entries verified intact."
-        )
+        return IntegrityVerifyResponse(status="intact", total_verified=len(records), details=f"All {len(records)} Audit Vault entries verified intact.")

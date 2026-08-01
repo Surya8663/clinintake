@@ -12,8 +12,10 @@ from src.logger import logger
 class LyzrApiError(Exception):
     """Raised when Lyzr API requests fail or credentials are invalid."""
 
+
 class LyzrGovernanceViolationError(Exception):
     """Raised when a Lyzr Responsible AI policy (prompt injection, grounding) is violated."""
+
 
 class LyzrExecutionTimeoutError(Exception):
     """Raised when a SuperFlow execution times out."""
@@ -29,17 +31,9 @@ class LyzrSuperFlowClient:
     def _get_headers(self) -> dict[str, str]:
         if not self.api_key or self.api_key == "MISSING":
             raise LyzrApiError("LYZR_API_KEY mandatory configuration missing or invalid. Execution rejected.")
-        return {
-            "x-api-key": self.api_key,
-            "Content-Type": "application/json"
-        }
+        return {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
-    def start_superflow_execution(
-        self,
-        workflow_id: str,
-        document_id: str,
-        input_payload: dict[str, Any]
-    ) -> dict[str, Any]:
+    def start_superflow_execution(self, workflow_id: str, document_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
         """
         Initiates a Lyzr SuperFlow DAG execution for the clinical workflow.
         Returns execution_id, session_id, trace_id, and node statuses.
@@ -57,13 +51,7 @@ class LyzrSuperFlowClient:
         session_id = f"sess_lyzr_{uuid.uuid4().hex[:12]}"
         trace_id = f"tr_lyzr_{uuid.uuid4().hex[:16]}"
 
-        request_body = {
-            "workflow_id": workflow_id,
-            "document_id": document_id,
-            "session_id": session_id,
-            "trace_id": trace_id,
-            "input_payload": input_payload
-        }
+        request_body = {"workflow_id": workflow_id, "document_id": document_id, "session_id": session_id, "trace_id": trace_id, "input_payload": input_payload}
 
         url = f"{self.base_url}/v3/superflow/{self.superflow_id}/execute"
         logger.info(f"Starting Lyzr SuperFlow execution for document={document_id}, execution_id={execution_id}")
@@ -78,7 +66,7 @@ class LyzrSuperFlowClient:
                         "session_id": data.get("session_id", session_id),
                         "trace_id": data.get("trace_id", trace_id),
                         "status": data.get("status", "RUNNING"),
-                        "nodes": data.get("nodes", {})
+                        "nodes": data.get("nodes", {}),
                     }
         except httpx.HTTPError as e:
             logger.warning(f"Lyzr API connection error ({e}), operating with verified SuperFlow local runner engine.")
@@ -106,15 +94,11 @@ class LyzrSuperFlowClient:
                 "referral_agent": "COMPLETED",
                 "output_guardrails": "COMPLETED",
                 "clinician_approval_wait": "WAITING_APPROVAL",
-                "fhir_write": "PENDING"
-            }
+                "fhir_write": "PENDING",
+            },
         }
 
-    def execute_agent(
-        self,
-        agent_id: str,
-        input_payload: dict[str, Any]
-    ) -> dict[str, Any]:
+    def execute_agent(self, agent_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
         """
         Executes a specialized Lyzr Agent with Responsible AI policy validation.
         """
@@ -141,11 +125,8 @@ class LyzrSuperFlowClient:
         """Verifies HMAC-SHA256 webhook callback signatures from Lyzr SuperFlow."""
         if not signature_header or not self.webhook_secret:
             return False
-        expected_sig = hmac.new(
-            self.webhook_secret.encode('utf-8'),
-            body_bytes,
-            hashlib.sha256
-        ).hexdigest()
+        expected_sig = hmac.new(self.webhook_secret.encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected_sig, signature_header)
+
 
 lyzr_client = LyzrSuperFlowClient()

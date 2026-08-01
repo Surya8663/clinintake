@@ -1,9 +1,8 @@
-import os
-import sys
-import json
-import hashlib
 import argparse
+import hashlib
+import json
 from pathlib import Path
+import sys
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -13,14 +12,16 @@ from src.config import settings
 from src.models import GuidelineChunk
 from src.qdrant_repository import qdrant_repo
 
+
 def compute_sha256(data: str) -> str:
-    return "sha256:" + hashlib.sha256(data.encode('utf-8')).hexdigest()
+    return "sha256:" + hashlib.sha256(data.encode("utf-8")).hexdigest()
+
 
 def ingest_from_manifest(manifest_path: Path) -> dict:
     if not manifest_path.exists():
         raise FileNotFoundError(f"Manifest file not found: {manifest_path}")
 
-    with open(manifest_path, 'r', encoding='utf-8') as f:
+    with open(manifest_path, encoding="utf-8") as f:
         raw_items = json.load(f)
 
     chunks = []
@@ -48,7 +49,7 @@ def ingest_from_manifest(manifest_path: Path) -> dict:
             page=item.get("page", 1),
             text=text,
             clause_id=item.get("clause_id", f"CLAUSE-{idx + 1}"),
-            is_active=item.get("is_active", True)
+            is_active=item.get("is_active", True),
         )
         chunks.append(chunk)
 
@@ -60,9 +61,10 @@ def ingest_from_manifest(manifest_path: Path) -> dict:
         "total_documents": len(raw_items),
         "total_chunks_upserted": inserted_count,
         "collection_name": qdrant_repo.collection_name,
-        "qdrant_url": getattr(qdrant_repo.get_client(), "url", str(settings.qdrant_url))
+        "qdrant_url": getattr(qdrant_repo.get_client(), "url", str(settings.qdrant_url)),
     }
     return report
+
 
 def main():
     parser = argparse.ArgumentParser(description="Clinical Guideline Qdrant Hybrid RAG Ingestion CLI")
@@ -81,6 +83,7 @@ def main():
     except Exception as e:
         print(f"[ERROR] Ingestion failed: {e}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

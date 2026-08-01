@@ -5,18 +5,13 @@ from src.explanation_engine import generate_care_gap_explanation
 from src.logger import logger
 from src.models import CareGapExplanationResponse, ClinicalDecisionPackage
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Care-Gap Explanation Agent with Real Guideline & Document Citation Grounding",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Care-Gap Explanation Agent with Real Guideline & Document Citation Grounding", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name
-    }
+    return {"status": "ok", "service": settings.service_name}
+
 
 @app.post("/care-gap/explain", response_model=CareGapExplanationResponse)
 async def explain_care_gaps(package: ClinicalDecisionPackage):

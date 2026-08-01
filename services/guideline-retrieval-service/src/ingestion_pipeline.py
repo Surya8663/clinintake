@@ -1,4 +1,3 @@
-
 from src.logger import logger
 from src.models import GuidelineChunk
 from src.qdrant_repository import qdrant_repo

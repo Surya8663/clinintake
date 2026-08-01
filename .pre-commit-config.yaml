@@ -1,4 +1,4 @@
-﻿repos:
+repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
@@ -23,6 +23,7 @@
     hooks:
       - id: mypy
         additional_dependencies: [pydantic]
+        args: [--explicit-package-bases]
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.1
@@ -40,7 +41,7 @@
 
       - id: eslint-clinical-workspace
         name: eslint (clinical-workspace)
-        entry: npm run lint
+        entry: npm --prefix services/clinical-workspace/frontend run lint
         language: system
         pass_filenames: false
         always_run: true
@@ -48,7 +49,7 @@
 
       - id: eslint-compliance-dashboard
         name: eslint (compliance-dashboard)
-        entry: npm run lint
+        entry: npm --prefix services/compliance-dashboard/frontend run lint
         language: system
         pass_filenames: false
         always_run: true
@@ -56,7 +57,7 @@
 
       - id: eslint-metrics-dashboard
         name: eslint (metrics-dashboard)
-        entry: npm run lint
+        entry: npm --prefix services/metrics-dashboard/frontend run lint
         language: system
         pass_filenames: false
         always_run: true

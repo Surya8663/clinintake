@@ -9,17 +9,22 @@ from src.models import Base
 @pytest.fixture(autouse=True)
 def setup_test_db():
     import asyncio
+
     async def create_tables():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
     asyncio.run(create_tables())
 
+
 client = TestClient(app)
+
 
 def test_failure_queue_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
 
 def test_retry_exhaustion_escalates_to_manual_review():
     """
@@ -28,12 +33,7 @@ def test_retry_exhaustion_escalates_to_manual_review():
     the item status transitions to 'manual_review' in the dead-letter queue.
     """
     doc_id = "DOC-EXHAUST-RETRY-999"
-    payload = {
-        "document_id": doc_id,
-        "service_name": "extraction-agent",
-        "error_type": "LOW_CONFIDENCE_EXTRACTION",
-        "error_message": "Confidence score 0.42 below required threshold 0.70"
-    }
+    payload = {"document_id": doc_id, "service_name": "extraction-agent", "error_type": "LOW_CONFIDENCE_EXTRACTION", "error_message": "Confidence score 0.42 below required threshold 0.70"}
 
     # 1. Enqueue 1st failure (retry_count=0)
     resp1 = client.post("/failure/enqueue", json=payload)

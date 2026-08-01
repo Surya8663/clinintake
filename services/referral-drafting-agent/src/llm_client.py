@@ -25,14 +25,7 @@ RULES:
 Return ONLY the JSON object. No markdown wrapping outside JSON, no extra commentary."""
 
 
-def call_llm_referral_draft(
-    patient_id: str,
-    target_specialty: str,
-    urgency_level: str,
-    clinical_reasons: list[str],
-    evidence_items: list[dict[str, Any]],
-    document_id: str
-) -> str:
+def call_llm_referral_draft(patient_id: str, target_specialty: str, urgency_level: str, clinical_reasons: list[str], evidence_items: list[dict[str, Any]], document_id: str) -> str:
     """
     Calls the Lyzr Specialist Referral Drafting Agent (agent_ref_draft_v3) with Responsible AI governance.
     """
@@ -49,10 +42,7 @@ def call_llm_referral_draft(
         "grounded_evidence": evidence_items,
     }
 
-    user_prompt = (
-        f"Draft a formal clinical referral letter for the following patient referral details:\n\n"
-        f"{json.dumps(context, indent=2)}"
-    )
+    user_prompt = f"Draft a formal clinical referral letter for the following patient referral details:\n\n" f"{json.dumps(context, indent=2)}"
 
     logger.info(f"Calling Lyzr Referral Drafting Agent (doc_id={document_id})...")
 
@@ -60,11 +50,7 @@ def call_llm_referral_draft(
     lyzr_url = f"{getattr(settings, 'lyzr_base_url', 'https://api.lyzr.ai')}/v3/agents/agent_ref_draft_v3/execute"
     try:
         with httpx.Client(timeout=10.0) as client:
-            res = client.post(
-                lyzr_url,
-                json={"prompt": user_prompt, "system_prompt": REFERRAL_DRAFT_SYSTEM_PROMPT},
-                headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"}
-            )
+            res = client.post(lyzr_url, json={"prompt": user_prompt, "system_prompt": REFERRAL_DRAFT_SYSTEM_PROMPT}, headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"})
             if res.status_code == 200:
                 raw_data = res.json()
                 if "response" in raw_data and isinstance(raw_data["response"], dict):

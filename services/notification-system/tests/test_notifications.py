@@ -4,10 +4,12 @@ from src.main import app
 
 client = TestClient(app)
 
+
 def test_notification_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
 
 def test_multi_channel_alert_dispatch_latency_sla():
     """
@@ -20,7 +22,7 @@ def test_multi_channel_alert_dispatch_latency_sla():
         "patient_id": "PAT-SEPSIS-911",
         "severity": "EMERGENCY",
         "channels": ["SMS", "EMAIL", "WEBHOOK"],
-        "alert_message": "CRITICAL EMERGENCY: Sepsis syndrome identified via qSOFA score >= 2. Immediate clinical response required."
+        "alert_message": "CRITICAL EMERGENCY: Sepsis syndrome identified via qSOFA score >= 2. Immediate clinical response required.",
     }
 
     response = client.post("/notify/alert", json=payload)

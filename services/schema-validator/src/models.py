@@ -9,9 +9,11 @@ class ValidationIssue(BaseModel):
     description: str = Field(..., description="Detailed error explanation")
     severity: str = Field("error", description="'error' or 'warning'")
 
+
 class ValidateSchemaRequest(BaseModel):
     resource_type: str = Field(..., description="FHIR R4 resource type name (e.g., 'Condition', 'MedicationStatement', 'Observation', 'Patient')")
     fhir_resource: dict[str, Any] = Field(..., description="Raw FHIR R4 JSON object to validate")
+
 
 class ValidateSchemaResponse(BaseModel):
     is_valid: bool = Field(..., description="True if resource strictly satisfies FHIR R4 schema")

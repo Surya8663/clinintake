@@ -32,12 +32,10 @@ async def readiness():
     Services missing required config must not report ready.
     """
     if not QDRANT_URL:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail={"status": "not_ready", "reason": "QDRANT_URL environment variable not configured."})
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"status": "not_ready", "reason": "QDRANT_URL environment variable not configured."})
 
     if not DATABASE_URL:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail={"status": "not_ready", "reason": "DATABASE_URL environment variable not configured."})
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"status": "not_ready", "reason": "DATABASE_URL environment variable not configured."})
 
     dependency_results = {}
 
@@ -56,9 +54,7 @@ async def readiness():
     if KAFKA_BOOTSTRAP_SERVERS:
         try:
             host, port = KAFKA_BOOTSTRAP_SERVERS.split(":")[0], int(KAFKA_BOOTSTRAP_SERVERS.split(":")[1])
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=2.0
-            )
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=2.0)
             writer.close()
             await writer.wait_closed()
             dependency_results["kafka"] = {"status": "healthy"}
@@ -69,16 +65,7 @@ async def readiness():
     if unhealthy:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "not_ready",
-                "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
-                "dependencies": dependency_results,
-                "unhealthy": unhealthy
-            }
+            content={"status": "not_ready", "timestamp": datetime.datetime.now(datetime.UTC).isoformat(), "dependencies": dependency_results, "unhealthy": unhealthy},
         )
 
-    return {
-        "status": "ready",
-        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
-        "dependencies": dependency_results
-    }
+    return {"status": "ready", "timestamp": datetime.datetime.now(datetime.UTC).isoformat(), "dependencies": dependency_results}

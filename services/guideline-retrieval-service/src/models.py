@@ -23,10 +23,12 @@ class GuidelineChunk(BaseModel):
     clause_id: str = Field(..., description="Clause / recommendation clause identifier")
     is_active: bool = Field(default=True, description="Flag indicating if guideline chunk is currently active")
 
+
 class GuidelineQueryRequest(BaseModel):
     query: str = Field(..., description="Clinical query / patient condition context")
     min_relevance_score: float | None = Field(None, description="Relevance score threshold (defaults to 0.60)")
     metadata_filter: dict[str, Any] | None = Field(default_factory=dict, description="Metadata key-value filters (e.g. {'jurisdiction': 'US'})")
+
 
 class GuidelineMatch(BaseModel):
     passage: str
@@ -39,6 +41,7 @@ class GuidelineMatch(BaseModel):
     qdrant_point_id: str | None = None
     fusion_method: str | None = None
     chunk_checksum: str | None = None
+
 
 class GuidelineQueryResponse(BaseModel):
     query: str

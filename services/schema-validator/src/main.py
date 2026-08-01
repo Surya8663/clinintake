@@ -6,18 +6,13 @@ from src.logger import logger
 from src.models import ValidateSchemaRequest, ValidateSchemaResponse
 from src.validator_engine import validate_fhir_resource_schema
 
-app = FastAPI(
-    title=settings.service_name,
-    description="FHIR R4 Schema Validation Microservice",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="FHIR R4 Schema Validation Microservice", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name
-    }
+    return {"status": "ok", "service": settings.service_name}
+
 
 @app.post("/validate/schema", response_model=ValidateSchemaResponse)
 async def validate_schema(request: ValidateSchemaRequest):
@@ -27,9 +22,6 @@ async def validate_schema(request: ValidateSchemaRequest):
 
     if not response.is_valid:
         logger.warning(f"Rejecting malformed FHIR resource '{request.resource_type}' with {len(response.issues)} errors.")
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=response.model_dump(mode="json")
-        )
+        return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=response.model_dump(mode="json"))
 
     return response

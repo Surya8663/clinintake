@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -129,14 +128,16 @@ export interface ClinicalWorkflowContext extends BaseClinicalContract {
 TARGET_PATHS = [
     REPO_ROOT / "services" / "clinical-workspace" / "frontend" / "src" / "types" / "api-contracts.ts",
     REPO_ROOT / "services" / "compliance-dashboard" / "frontend" / "src" / "types" / "api-contracts.ts",
-    REPO_ROOT / "services" / "metrics-dashboard" / "frontend" / "src" / "types" / "api-contracts.ts"
+    REPO_ROOT / "services" / "metrics-dashboard" / "frontend" / "src" / "types" / "api-contracts.ts",
 ]
+
 
 def main():
     for target in TARGET_PATHS:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(TYPESCRIPT_CONTRACT_CONTENT, encoding="utf-8")
         print(f"[OK] Generated TypeScript contract -> {target.relative_to(REPO_ROOT)}")
+
 
 if __name__ == "__main__":
     main()

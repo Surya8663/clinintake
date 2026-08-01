@@ -18,6 +18,7 @@ class PatientMetadata(BaseClinicalContract):
     last_name: str
     date_of_birth: str
 
+
 SanitizeRequest = FilterScanRequest
 SanitizeResponse = FilterScanResponse
 ValidateRequest = SchemaValidateRequest

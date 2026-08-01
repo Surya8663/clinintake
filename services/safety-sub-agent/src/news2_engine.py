@@ -1,4 +1,3 @@
-
 from src.logger import logger
 from src.models import VitalsMeasurement
 

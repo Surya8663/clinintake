@@ -11,29 +11,21 @@ from src.idempotency_store import check_and_set_idempotency_key
 from src.logger import logger
 from src.models import FHIRTransactionRequest, FHIRTransactionResponse
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Sole EHR Write Component with Redis Idempotency and FHIR R4 Transaction Bundles",
-    version="2.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Sole EHR Write Component with Redis Idempotency and FHIR R4 Transaction Bundles", version="2.0.0")
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name,
-        "ehr_client_configured": bool(settings.ehr_client_id)
-    }
+    return {"status": "ok", "service": settings.service_name, "ehr_client_configured": bool(settings.ehr_client_id)}
+
 
 USED_JTI_CACHE: set[str] = set()
 
+
 @app.post("/fhir/write-transaction", response_model=FHIRTransactionResponse)
-async def write_fhir_transaction(
-    request: FHIRTransactionRequest,
-    claims: dict[str, Any] = Depends(require_m2m_service)
-):
+async def write_fhir_transaction(request: FHIRTransactionRequest, claims: dict[str, Any] = Depends(require_m2m_service)):
     """
     Sole component with EHR write credentials.
     Requires machine-to-machine service authentication, JTI anti-replay check, and Redis idempotency deduplication.
@@ -61,24 +53,13 @@ async def write_fhir_transaction(
         return FHIRTransactionResponse(**cached_res)
 
     # 2. Assemble real FHIR R4 Transaction Bundle
-    bundle = assemble_fhir_r4_transaction_bundle(
-        document_id=request.document_id,
-        patient_id=request.patient_id,
-        fhir_resources=request.fhir_resources
-    )
+    bundle = assemble_fhir_r4_transaction_bundle(document_id=request.document_id, patient_id=request.patient_id, fhir_resources=request.fhir_resources)
 
     # 3. Execute write against local HAPI FHIR server & verify persistence
     bundle_id, references = await execute_fhir_transaction(bundle)
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-    response_payload = {
-        "document_id": request.document_id,
-        "status": "persisted",
-        "fhir_bundle_id": bundle_id,
-        "resource_references": references,
-        "is_duplicate": False,
-        "timestamp": now_iso
-    }
+    response_payload = {"document_id": request.document_id, "status": "persisted", "fhir_bundle_id": bundle_id, "resource_references": references, "is_duplicate": False, "timestamp": now_iso}
 
     # 4. Save to Idempotency Store
     check_and_set_idempotency_key(request.idempotency_key, response_payload)

@@ -13,11 +13,12 @@ or any synthetic clinical data. It only sets up platform infrastructure.
 Usage:
     python scripts/provision_platform.py
 """
-import os
-import sys
-import json
+
 import asyncio
 import logging
+import os
+import sys
+
 import httpx
 
 logging.basicConfig(level=logging.INFO)
@@ -55,19 +56,7 @@ async def provision_qdrant():
             return
 
         # Create collection with hybrid vector configuration
-        payload = {
-            "vectors": {
-                "dense": {
-                    "size": 384,
-                    "distance": "Cosine"
-                }
-            },
-            "sparse_vectors": {
-                "sparse": {
-                    "index": {"on_disk": False}
-                }
-            }
-        }
+        payload = {"vectors": {"dense": {"size": 384, "distance": "Cosine"}}, "sparse_vectors": {"sparse": {"index": {"on_disk": False}}}}
         resp = await client.put(f"{QDRANT_URL}/collections/{collection_name}", json=payload)
         resp.raise_for_status()
 
@@ -78,10 +67,7 @@ async def provision_qdrant():
             ("source_organization", "keyword"),
             ("version", "keyword"),
         ]:
-            index_resp = await client.put(
-                f"{QDRANT_URL}/collections/{collection_name}/index",
-                json={"field_name": field_name, "field_schema": field_schema}
-            )
+            index_resp = await client.put(f"{QDRANT_URL}/collections/{collection_name}/index", json={"field_name": field_name, "field_schema": field_schema})
             if index_resp.status_code not in (200, 201):
                 logger.warning(f"Could not create index for field '{field_name}': {index_resp.text}")
 
@@ -96,11 +82,7 @@ async def main():
     await provision_qdrant()
 
     logger.info("Platform provisioning complete. Ready for guideline document ingestion.")
-    logger.info(
-        "REMINDER: Ingest approved clinical guideline documents via "
-        "`python scripts/ingest_guidelines.py --source <guideline_dir>` "
-        "before the service is operational."
-    )
+    logger.info("REMINDER: Ingest approved clinical guideline documents via " "`python scripts/ingest_guidelines.py --source <guideline_dir>` " "before the service is operational.")
 
 
 if __name__ == "__main__":

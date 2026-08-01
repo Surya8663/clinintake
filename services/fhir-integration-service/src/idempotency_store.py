@@ -7,6 +7,7 @@ from src.logger import logger
 # Local memory store fallback for test environments when Redis container is offline
 _LOCAL_IDEMPOTENCY_CACHE: dict[str, dict[str, Any]] = {}
 
+
 def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str, Any] | None = None) -> tuple[bool, dict[str, Any] | None]:
     """
     Redis-backed (with local cache fallback) idempotency key checker.
@@ -21,16 +22,17 @@ def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str,
 
     try:
         import redis
+
         r = redis.Redis(host=settings.redis_host, port=settings.redis_port, db=0, socket_timeout=0.5)
         existing = r.get(key)
         if existing is not None and isinstance(existing, (bytes, str)):
-            raw_str = existing.decode('utf-8') if isinstance(existing, bytes) else existing
+            raw_str = existing.decode("utf-8") if isinstance(existing, bytes) else existing
             data = json.loads(raw_str)
             logger.info(f"Redis Idempotency Hit for key='{idempotency_key}'. Returning cached no-op response.")
             return True, data
 
         if response_data is not None:
-            r.setex(key, 86400, json.dumps(response_data)) # 24h TTL
+            r.setex(key, 86400, json.dumps(response_data))  # 24h TTL
             _LOCAL_IDEMPOTENCY_CACHE[key] = response_data
             return False, None
     except Exception as e:

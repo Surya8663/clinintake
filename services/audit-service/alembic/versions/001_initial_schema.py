@@ -3,6 +3,7 @@ Migration: 001_initial_schema
 Creates the audit_vault table with HMAC-signed append-only event records
 and the document_workflow table for persistent workflow state.
 """
+
 from alembic import op
 import sqlalchemy as sa
 

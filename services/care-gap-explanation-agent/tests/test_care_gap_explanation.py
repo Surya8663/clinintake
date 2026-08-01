@@ -4,22 +4,18 @@ from src.main import app
 
 client = TestClient(app)
 
+
 def test_care_gap_agent_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+
 def test_explanation_generation_from_package():
     package_data = {
         "document_id": "DOC-PKG-001",
         "patient_id": "PAT-100",
-        "temporal_care_gaps": [
-            {
-                "measure_name": "USPSTF Colorectal Cancer Screening",
-                "status": "overdue",
-                "due_date": "2025-06-15"
-            }
-        ],
+        "temporal_care_gaps": [{"measure_name": "USPSTF Colorectal Cancer Screening", "status": "overdue", "due_date": "2025-06-15"}],
         "guideline_passages": [
             {
                 "source": "USPSTF Colorectal Screening Recommendation Summary 2021",
@@ -27,12 +23,10 @@ def test_explanation_generation_from_package():
                 "section": "Recommendation Statement",
                 "clause_id": "USPSTF-CRC-2021-01",
                 "passage_text": "The USPSTF recommends screening for colorectal cancer in all adults aged 45 to 75 years.",
-                "similarity_score": 0.89
+                "similarity_score": 0.89,
             }
         ],
-        "safety_assessment": {
-            "is_emergency": False
-        }
+        "safety_assessment": {"is_emergency": False},
     }
 
     response = client.post("/care-gap/explain", json=package_data)
@@ -46,6 +40,7 @@ def test_explanation_generation_from_package():
     assert citation["clause_id"] == "USPSTF-CRC-2021-01"
     assert citation["section"] == "Recommendation Statement"
     assert "adults aged 45 to 75 years" in citation["passage_text"]
+
 
 def test_citations_strictly_match_input_package_passages_not_fabricated():
     """
@@ -65,9 +60,9 @@ def test_citations_strictly_match_input_package_passages_not_fabricated():
                 "section": "Target Population",
                 "clause_id": unique_clause_id,
                 "passage_text": unique_passage_text,
-                "similarity_score": 0.95
+                "similarity_score": 0.95,
             }
-        ]
+        ],
     }
 
     response = client.post("/care-gap/explain", json=package_data)

@@ -2,6 +2,7 @@
 Alembic database migration environment configuration.
 All migrations run at service startup via the deployment entrypoint.
 """
+
 from logging.config import fileConfig
 import os
 

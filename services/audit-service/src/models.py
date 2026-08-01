@@ -11,6 +11,7 @@ class AuditEventCreate(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     timestamp: str | None = None
 
+
 class AuditRecordResponse(BaseModel):
     id: int
     event_id: str
@@ -23,9 +24,11 @@ class AuditRecordResponse(BaseModel):
     hmac_signature: str
     created_at: str
 
+
 class AuditQueryResponse(BaseModel):
     total_records: int
     records: list[AuditRecordResponse]
+
 
 class IntegrityVerifyResponse(BaseModel):
     status: str = Field(..., description="'intact' or 'compromised'")

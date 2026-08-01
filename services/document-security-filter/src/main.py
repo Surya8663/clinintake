@@ -9,14 +9,11 @@ from src.config import settings
 from src.logger import logger
 from src.prompt_injection import PromptInjectionDetector
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Document Security Filter - Clinical DMZ Scanner",
-    version="0.1.0"
-)
+app = FastAPI(title=settings.service_name, description="Document Security Filter - Clinical DMZ Scanner", version="0.1.0")
 
 clamav_scanner = ClamAVScanner()
 injection_detector = PromptInjectionDetector()
+
 
 @app.post("/filter/scan")
 async def scan_document(file: UploadFile = File(...)):
@@ -28,26 +25,14 @@ async def scan_document(file: UploadFile = File(...)):
     kind = filetype.guess(file_bytes)
     if not kind or kind.mime != "application/pdf":
         mime_found = kind.mime if kind else "unknown"
-        logger.warning(
-            f"MIME type validation failed for {file.filename}",
-            extra={"mime_found": mime_found}
-        )
-        return {
-            "is_safe": False,
-            "reason": f"MIME check failed. Expected application/pdf, but resolved as {mime_found}."
-        }
+        logger.warning(f"MIME type validation failed for {file.filename}", extra={"mime_found": mime_found})
+        return {"is_safe": False, "reason": f"MIME check failed. Expected application/pdf, but resolved as {mime_found}."}
 
     # 2. Malware Scan (ClamAV)
     is_malware_safe, malware_reason = clamav_scanner.scan_bytes(file_bytes)
     if not is_malware_safe:
-        logger.warning(
-            f"Malware detection scanner triggered for {file.filename}",
-            extra={"reason": malware_reason}
-        )
-        return {
-            "is_safe": False,
-            "reason": malware_reason
-        }
+        logger.warning(f"Malware detection scanner triggered for {file.filename}", extra={"reason": malware_reason})
+        return {"is_safe": False, "reason": malware_reason}
 
     # 3. Prompt Injection (extract text and evaluate)
     try:
@@ -61,30 +46,16 @@ async def scan_document(file: UploadFile = File(...)):
 
         is_injection_safe, injection_reason = injection_detector.scan_text(full_text)
         if not is_injection_safe:
-            logger.warning(
-                f"Prompt injection validation triggered for {file.filename}",
-                extra={"reason": injection_reason}
-            )
-            return {
-                "is_safe": False,
-                "reason": injection_reason
-            }
+            logger.warning(f"Prompt injection validation triggered for {file.filename}", extra={"reason": injection_reason})
+            return {"is_safe": False, "reason": injection_reason}
 
     except Exception as e:
-        logger.error(
-            f"Error processing PDF structure for prompt injection check on {file.filename}",
-            extra={"error": str(e)}
-        )
-        return {
-            "is_safe": False,
-            "reason": f"Failed to extract document contents: {e!s}"
-        }
+        logger.error(f"Error processing PDF structure for prompt injection check on {file.filename}", extra={"error": str(e)})
+        return {"is_safe": False, "reason": f"Failed to extract document contents: {e!s}"}
 
     logger.info(f"Document {file.filename} passed all Clinical DMZ scanning stages successfully.")
-    return {
-        "is_safe": True,
-        "reason": "Document cleared scan validation."
-    }
+    return {"is_safe": True, "reason": "Document cleared scan validation."}
+
 
 @app.get("/health")
 async def health_check():

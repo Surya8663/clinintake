@@ -5,6 +5,7 @@ and asserts the output has the correct shape (value, quote, confidence all prese
 
 Requires OPENAI_API_KEY environment variable to be set.
 """
+
 import os
 
 import pytest
@@ -30,10 +31,7 @@ SAMPLE_OCR_WORDS = [
 ]
 
 
-@pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"),
-    reason="No LLM API key set — skipping real LLM integration test"
-)
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"), reason="No LLM API key set — skipping real LLM integration test")
 def test_real_llm_extraction_output_shape():
     """
     Sends realistic clinical text through the real LLM and asserts:
@@ -56,9 +54,7 @@ def test_real_llm_extraction_output_shape():
     assert pat.get("literal_quote"), "patient_id.literal_quote missing or empty"
     assert "confidence" in pat, "patient_id.confidence missing"
     assert 0.0 <= float(pat["confidence"]) <= 1.0, f"patient_id.confidence out of range: {pat['confidence']}"
-    assert pat["literal_quote"] in SAMPLE_CLINICAL_TEXT, (
-        f"patient_id.literal_quote is not a substring of input: '{pat['literal_quote']}'"
-    )
+    assert pat["literal_quote"] in SAMPLE_CLINICAL_TEXT, f"patient_id.literal_quote is not a substring of input: '{pat['literal_quote']}'"
 
     # --- Diagnoses ---
     assert isinstance(result["diagnoses"], list), "diagnoses should be a list"
@@ -94,20 +90,13 @@ def test_real_llm_extraction_output_shape():
             assert 0.0 <= float(field["confidence"]) <= 1.0
 
 
-@pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"),
-    reason="No LLM API key set (OPENAI_API_KEY or GOOGLE_API_KEY) — skipping real LLM integration test"
-)
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY") and not os.getenv("GOOGLE_API_KEY"), reason="No LLM API key set (OPENAI_API_KEY or GOOGLE_API_KEY) — skipping real LLM integration test")
 def test_real_llm_extraction_end_to_end():
     """
     Full end-to-end: OCR text → LLM → create_grounded_field() → ExtractionData.
     Asserts the complete pipeline produces valid GroundedField objects.
     """
-    result = perform_quote_grounded_extraction(
-        ocr_text=SAMPLE_CLINICAL_TEXT,
-        ocr_words=SAMPLE_OCR_WORDS,
-        threshold_override=0.70
-    )
+    result = perform_quote_grounded_extraction(ocr_text=SAMPLE_CLINICAL_TEXT, ocr_words=SAMPLE_OCR_WORDS, threshold_override=0.70)
 
     # Patient ID should be a GroundedField with real values
     assert result.patient_id.value != "", "patient_id value should not be empty"

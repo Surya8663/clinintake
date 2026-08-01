@@ -16,18 +16,13 @@ class AuditEventBus:
 
     async def start(self) -> None:
         try:
-            self.producer = AIOKafkaProducer(
-                bootstrap_servers=settings.kafka_bootstrap_servers
-            )
+            self.producer = AIOKafkaProducer(bootstrap_servers=settings.kafka_bootstrap_servers)
             # Try to connect with a small timeout so local tests or startup don't hang
             await self.producer.start()
             self.enabled = True
             logger.info("Audit Event Bus (Kafka) connected successfully.")
         except Exception as e:
-            logger.warning(
-                "Audit Event Bus (Kafka) connection failed. Logging events to standard audit log.",
-                extra={"error": str(e)}
-            )
+            logger.warning("Audit Event Bus (Kafka) connection failed. Logging events to standard audit log.", extra={"error": str(e)})
             self.enabled = False
 
     async def publish_event(self, event_type: str, document_id: str, payload: dict[str, Any]) -> None:
@@ -43,15 +38,9 @@ class AuditEventBus:
         if self.enabled and self.producer:
             try:
                 # Asynchronously send log event
-                await self.producer.send_and_wait(
-                    settings.audit_topic,
-                    json.dumps(event).encode("utf-8")
-                )
+                await self.producer.send_and_wait(settings.audit_topic, json.dumps(event).encode("utf-8"))
             except Exception as e:
-                logger.error(
-                    "Failed to publish to Kafka Audit Event Bus",
-                    extra={"error": str(e), "document_id": document_id}
-                )
+                logger.error("Failed to publish to Kafka Audit Event Bus", extra={"error": str(e), "document_id": document_id})
 
     async def stop(self) -> None:
         if self.producer:
@@ -59,7 +48,9 @@ class AuditEventBus:
             self.producer = None
             self.enabled = False
 
+
 audit_event_bus = AuditEventBus()
+
 
 async def dispatch_downstream_call(service_name: str, url: str, payload: BaseModel) -> dict[str, Any]:
     """
@@ -70,11 +61,7 @@ async def dispatch_downstream_call(service_name: str, url: str, payload: BaseMod
     document_id = getattr(payload, "document_id", "unknown")
 
     # Audit request before dispatching
-    await audit_event_bus.publish_event(
-        event_type=f"dispatch_request:{service_name}",
-        document_id=document_id,
-        payload=payload.model_dump()
-    )
+    await audit_event_bus.publish_event(event_type=f"dispatch_request:{service_name}", document_id=document_id, payload=payload.model_dump())
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
@@ -84,32 +71,14 @@ async def dispatch_downstream_call(service_name: str, url: str, payload: BaseMod
             resp_data = response.json()
 
             # Audit successful response
-            await audit_event_bus.publish_event(
-                event_type=f"dispatch_response_success:{service_name}",
-                document_id=document_id,
-                payload=resp_data
-            )
+            await audit_event_bus.publish_event(event_type=f"dispatch_response_success:{service_name}", document_id=document_id, payload=resp_data)
             return resp_data
 
         except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP status error calling {service_name}",
-                extra={"status_code": e.response.status_code, "response": e.response.text}
-            )
-            await audit_event_bus.publish_event(
-                event_type=f"dispatch_response_error:{service_name}",
-                document_id=document_id,
-                payload={"error": str(e), "status_code": e.response.status_code}
-            )
+            logger.error(f"HTTP status error calling {service_name}", extra={"status_code": e.response.status_code, "response": e.response.text})
+            await audit_event_bus.publish_event(event_type=f"dispatch_response_error:{service_name}", document_id=document_id, payload={"error": str(e), "status_code": e.response.status_code})
             raise e
         except Exception as e:
-            logger.error(
-                f"Connection error or unexpected exception calling {service_name}",
-                extra={"error": str(e)}
-            )
-            await audit_event_bus.publish_event(
-                event_type=f"dispatch_response_failed:{service_name}",
-                document_id=document_id,
-                payload={"error": str(e)}
-            )
+            logger.error(f"Connection error or unexpected exception calling {service_name}", extra={"error": str(e)})
+            await audit_event_bus.publish_event(event_type=f"dispatch_response_failed:{service_name}", document_id=document_id, payload={"error": str(e)})
             raise e

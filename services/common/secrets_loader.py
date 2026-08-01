@@ -45,7 +45,4 @@ def get_secret(name: str, default: str | None = None) -> str:
     if default is not None:
         return default
 
-    raise RuntimeError(
-        f"CRITICAL: Required secret '{name}' is missing. "
-        f"Mount a secret file at /run/secrets/{name} or set environment variable {name.upper()}."
-    )
+    raise RuntimeError(f"CRITICAL: Required secret '{name}' is missing. " f"Mount a secret file at /run/secrets/{name} or set environment variable {name.upper()}.")

@@ -2,6 +2,7 @@
 PHI-safe logger unit tests.
 Verifies that patient data field values are redacted from all log records.
 """
+
 from io import StringIO
 import json
 import logging
@@ -17,10 +18,7 @@ from services.common.phi_safe_logger import PhiSafeJsonFormatter, configure_phi_
 def _capture_log_record(record_extras: dict) -> dict:
     """Helper to format a log record and parse the JSON output."""
     formatter = PhiSafeJsonFormatter()
-    record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname="", lineno=0,
-        msg="Test log message", args=(), exc_info=None
-    )
+    record = logging.LogRecord(name="test", level=logging.INFO, pathname="", lineno=0, msg="Test log message", args=(), exc_info=None)
     for k, v in record_extras.items():
         setattr(record, k, v)
     output = formatter.format(record)
@@ -56,10 +54,7 @@ def test_log_message_is_preserved():
 
 def test_nested_phi_field_is_redacted():
     formatter = PhiSafeJsonFormatter()
-    record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname="", lineno=0,
-        msg="Nested PHI test", args=(), exc_info=None
-    )
+    record = logging.LogRecord(name="test", level=logging.INFO, pathname="", lineno=0, msg="Nested PHI test", args=(), exc_info=None)
     record.patient_data = {"patient_name": "Jane Doe", "document_id": "DOC-002"}
     output = formatter.format(record)
     parsed = json.loads(output)

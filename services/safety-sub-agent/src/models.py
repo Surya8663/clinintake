@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 
@@ -11,11 +10,13 @@ class VitalsMeasurement(BaseModel):
     consciousness_level: str | None = Field(None, description="ACVPU scale: 'Alert', 'Confusion', 'Voice', 'Pain', 'Unresponsive'")
     temperature: float | None = Field(None, description="Body temperature in Celsius (normal 36.1-38.0 C)")
 
+
 class RedFlagTrigger(BaseModel):
     syndrome: str = Field(..., description="Red-flag category ('sepsis', 'stroke', 'anaphylaxis', 'major_bleeding', 'suicidal_ideation', 'chest_pain', 'severe_respiratory_distress')")
     severity: str = Field(..., description="'EMERGENCY' or 'CRITICAL'")
     description: str = Field(..., description="Clinical rationale for red-flag trigger")
     trigger_source: str = Field(..., description="'NEWS2_Score', 'qSOFA_Criteria', 'Heuristic_RedFlag_Keywords'")
+
 
 class SafetyEvaluateRequest(BaseModel):
     document_id: str
@@ -23,6 +24,7 @@ class SafetyEvaluateRequest(BaseModel):
     vitals: VitalsMeasurement | None = None
     clinical_text: str | None = None
     symptoms: list[str] | None = Field(default_factory=list)
+
 
 class SafetyEvaluateResponse(BaseModel):
     document_id: str

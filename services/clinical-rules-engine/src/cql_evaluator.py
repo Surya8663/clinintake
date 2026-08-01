@@ -35,12 +35,9 @@ def evaluate_cql_rules(patient_id: str, clinical_data: dict[str, Any], rule_libr
         if satisfied:
             inclusions.append("Diabetes_Care_Management_Protocol")
 
-        results.append(CQLRuleResult(
-            rule_name="Diabetes_Screening",
-            is_satisfied=satisfied,
-            rationale=rationale,
-            matched_codes=[c for c in diag_codes + rx_codes + loinc_codes if c and c != "Incomplete"]
-        ))
+        results.append(
+            CQLRuleResult(rule_name="Diabetes_Screening", is_satisfied=satisfied, rationale=rationale, matched_codes=[c for c in diag_codes + rx_codes + loinc_codes if c and c != "Incomplete"])
+        )
 
     # Rule 2: Hypertension Management Rule
     if "Hypertension_Control" in rule_libraries:
@@ -53,12 +50,7 @@ def evaluate_cql_rules(patient_id: str, clinical_data: dict[str, Any], rule_libr
         if satisfied:
             inclusions.append("Hypertension_Control_Protocol")
 
-        results.append(CQLRuleResult(
-            rule_name="Hypertension_Control",
-            is_satisfied=satisfied,
-            rationale=rationale,
-            matched_codes=[c for c in diag_codes + rx_codes if c and c != "Incomplete"]
-        ))
+        results.append(CQLRuleResult(rule_name="Hypertension_Control", is_satisfied=satisfied, rationale=rationale, matched_codes=[c for c in diag_codes + rx_codes if c and c != "Incomplete"]))
 
     # Rule 3: End-Stage Exclusion Rule
     has_terminal_exclusion = any("hospice" in d or "end stage" in d for d in diag_names)
@@ -69,10 +61,4 @@ def evaluate_cql_rules(patient_id: str, clinical_data: dict[str, Any], rule_libr
 
     logger.info(f"CQL evaluation completed for patient={patient_id}: is_eligible={is_eligible}, inclusions={len(inclusions)}, exclusions={len(exclusions)}")
 
-    return CQLEvaluateResponse(
-        patient_id=patient_id,
-        is_eligible=is_eligible,
-        evaluated_rules=results,
-        inclusion_criteria_met=inclusions,
-        exclusion_criteria_met=exclusions
-    )
+    return CQLEvaluateResponse(patient_id=patient_id, is_eligible=is_eligible, evaluated_rules=results, inclusion_criteria_met=inclusions, exclusion_criteria_met=exclusions)

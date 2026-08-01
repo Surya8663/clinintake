@@ -8,23 +8,33 @@ Detects patterns like:
 
 Exit code 0 = clean, 1 = findings.
 """
+
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 TEST_IMPORT_PATTERNS = [
-    (r'^\s*from\s+tests[\.\s]', "Import from tests package in runtime code"),
-    (r'^\s*import\s+tests[\.\s]', "Import of tests package in runtime code"),
-    (r'^\s*from\s+conftest\s+import', "Import from conftest in runtime code"),
-    (r'^\s*from\s+\.+tests\s+import', "Relative import from tests in runtime code"),
+    (r"^\s*from\s+tests[\.\s]", "Import from tests package in runtime code"),
+    (r"^\s*import\s+tests[\.\s]", "Import of tests package in runtime code"),
+    (r"^\s*from\s+conftest\s+import", "Import from conftest in runtime code"),
+    (r"^\s*from\s+\.+tests\s+import", "Relative import from tests in runtime code"),
 ]
 
 EXCLUDE_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv",
-    "dist", "build", ".pytest_cache", ".mypy_cache", ".ruff_cache",
-    "scripts", "docs",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "scripts",
+    "docs",
 }
 
 INCLUDE_EXTENSIONS = {".py"}

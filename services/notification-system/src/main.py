@@ -5,19 +5,13 @@ from src.config import settings
 from src.logger import logger
 from src.models import AlertDispatchRequest, AlertDispatchResponse
 
-app = FastAPI(
-    title=settings.service_name,
-    description="Multi-Channel Safety Alerting & SLA Latency Dispatcher",
-    version="1.0.0"
-)
+app = FastAPI(title=settings.service_name, description="Multi-Channel Safety Alerting & SLA Latency Dispatcher", version="1.0.0")
+
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "service": settings.service_name,
-        "sla_threshold_ms": settings.sla_latency_threshold_ms
-    }
+    return {"status": "ok", "service": settings.service_name, "sla_threshold_ms": settings.sla_latency_threshold_ms}
+
 
 @app.post("/notify/alert", response_model=AlertDispatchResponse)
 async def send_critical_alert(request: AlertDispatchRequest):

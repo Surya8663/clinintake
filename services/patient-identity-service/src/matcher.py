@@ -22,12 +22,8 @@ def parse_dob(dob_str: str) -> datetime.date | None:
     logger.warning(f"Unable to parse Date of Birth string format: '{dob_str}'")
     return None
 
-def compute_match_score(
-    first_name_in: str,
-    last_name_in: str,
-    dob_in: datetime.date | None,
-    patient: Patient
-) -> tuple[float, dict]:
+
+def compute_match_score(first_name_in: str, last_name_in: str, dob_in: datetime.date | None, patient: Patient) -> tuple[float, dict]:
     """
     Computes name similarity and DOB match to derive a confidence score.
     """
@@ -44,21 +40,11 @@ def compute_match_score(
     # Aggregate weighted score: 60% name similarity, 40% DOB exact match
     total_score = (name_score * 0.6) + (dob_score * 0.4)
 
-    details = {
-        "first_name_similarity": fn_sim,
-        "last_name_similarity": ln_sim,
-        "name_score_weighted": name_score * 0.6,
-        "dob_match_weighted": dob_score * 0.4,
-        "total_score": total_score
-    }
+    details = {"first_name_similarity": fn_sim, "last_name_similarity": ln_sim, "name_score_weighted": name_score * 0.6, "dob_match_weighted": dob_score * 0.4, "total_score": total_score}
     return total_score, details
 
-def resolve_patient_identity(
-    first_name: str,
-    last_name: str,
-    dob_str: str,
-    patients: list[Patient]
-) -> tuple[Patient | None, float, list[dict]]:
+
+def resolve_patient_identity(first_name: str, last_name: str, dob_str: str, patients: list[Patient]) -> tuple[Patient | None, float, list[dict]]:
     """
     Evaluates patient demographics against list of database patients.
     Returns (matched_patient, highest_score, candidate_logs).
@@ -71,13 +57,7 @@ def resolve_patient_identity(
 
     for p in patients:
         score, details = compute_match_score(first_name, last_name, dob_parsed, p)
-        candidates.append({
-            "patient_id": p.id,
-            "first_name": p.first_name,
-            "last_name": p.last_name,
-            "date_of_birth": p.date_of_birth.isoformat(),
-            "match_details": details
-        })
+        candidates.append({"patient_id": p.id, "first_name": p.first_name, "last_name": p.last_name, "date_of_birth": p.date_of_birth.isoformat(), "match_details": details})
 
         if score > best_score:
             best_score = score
@@ -89,14 +69,8 @@ def resolve_patient_identity(
     threshold = settings.patient_match_threshold
 
     if best_patient and best_score >= threshold:
-        logger.info(
-            f"Patient identity resolved successfully with score {best_score:.4f}",
-            extra={"matched_patient_id": best_patient.id, "score": best_score, "threshold": threshold}
-        )
+        logger.info(f"Patient identity resolved successfully with score {best_score:.4f}", extra={"matched_patient_id": best_patient.id, "score": best_score, "threshold": threshold})
         return best_patient, best_score, candidates
 
-    logger.warning(
-        f"Patient identity could not be resolved confidently. Highest score: {best_score:.4f}",
-        extra={"highest_score": best_score, "threshold": threshold}
-    )
+    logger.warning(f"Patient identity could not be resolved confidently. Highest score: {best_score:.4f}", extra={"highest_score": best_score, "threshold": threshold})
     return None, best_score, candidates

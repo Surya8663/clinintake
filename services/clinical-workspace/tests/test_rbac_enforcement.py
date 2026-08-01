@@ -13,6 +13,7 @@ from src.main import app
 
 client = TestClient(app)
 
+
 def get_auth_header(username="dr_smith", roles=["clinician:review", "clinician:approve"]):
     now = int(time.time())
     exp = now + 900
@@ -28,23 +29,19 @@ def get_auth_header(username="dr_smith", roles=["clinician:review", "clinician:a
         "iss": "http://localhost:8085/realms/clinintake",
         "aud": "clinintake-bff",
         "iat": now,
-        "exp": exp
+        "exp": exp,
     }
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
-    sig = hmac.new(b"test_workspace_secret_key_2026", message.encode('utf-8'), hashlib.sha256).digest()
+    sig = hmac.new(b"test_workspace_secret_key_2026", message.encode("utf-8"), hashlib.sha256).digest()
     token = f"{message}.{_b64_encode(sig)}"
     return {"Authorization": f"Bearer {token}"}
 
+
 def test_rbac_missing_referral_approve_scope_returns_403_forbidden():
     doc_id = "DOC-99482-A"
-    payload = {
-        "decision": "APPROVED",
-        "clinician_id": "auditor_jane",
-        "digital_signature": "SIG-TEST",
-        "notes": "Auditor attempting approval"
-    }
+    payload = {"decision": "APPROVED", "clinician_id": "auditor_jane", "digital_signature": "SIG-TEST", "notes": "Auditor attempting approval"}
 
     # Pass auditor token (lacks clinician:approve)
     headers = get_auth_header(username="auditor_jane", roles=["compliance:audit:read"])
@@ -53,14 +50,10 @@ def test_rbac_missing_referral_approve_scope_returns_403_forbidden():
     assert response.status_code == 403
     assert "Insufficient privileges" in response.json()["detail"]
 
+
 def test_rbac_valid_referral_approve_scope_granted():
     doc_id = "DOC-99482-A"
-    payload = {
-        "decision": "APPROVED",
-        "clinician_id": "dr_smith",
-        "digital_signature": "SIG-TEST",
-        "notes": "Approved by treating clinician"
-    }
+    payload = {"decision": "APPROVED", "clinician_id": "dr_smith", "digital_signature": "SIG-TEST", "notes": "Approved by treating clinician"}
 
     headers = get_auth_header(username="dr_smith", roles=["clinician:review", "clinician:approve"])
 

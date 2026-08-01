@@ -1,10 +1,10 @@
-
 from pydantic import BaseModel, Field
 
 
 class TerminologyMapRequest(BaseModel):
     term: str = Field(..., description="Raw clinical term to normalize (e.g. 'Lisinopril 10mg', 'HbA1c')")
     code_system: str = Field("RxNorm", description="Target system: 'RxNorm', 'LOINC', 'SNOMED'")
+
 
 class TerminologyMapResponse(BaseModel):
     raw_term: str

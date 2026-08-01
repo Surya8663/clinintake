@@ -1,8 +1,10 @@
+import importlib
 import os
 import sys
-import importlib
-import pytest
+
 from fastapi.testclient import TestClient
+import pytest
+
 
 def _load_service_app(service_name: str):
     service_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "services", service_name))
@@ -18,6 +20,7 @@ def _load_service_app(service_name: str):
         sys.path.remove(service_dir)
     return main_mod.app
 
+
 def test_pessimistic_safety_incomplete_when_vitals_missing():
     """
     PHASE 18 CRITICAL SAFETY TEST:
@@ -29,13 +32,7 @@ def test_pessimistic_safety_incomplete_when_vitals_missing():
     client = TestClient(safety_app)
 
     # Payload missing respiratory_rate and spo2
-    payload = {
-        "document_id": "DOC-MISSING-VITALS-001",
-        "vitals": {
-            "systolic_bp": 120,
-            "heart_rate": 72
-        }
-    }
+    payload = {"document_id": "DOC-MISSING-VITALS-001", "vitals": {"systolic_bp": 120, "heart_rate": 72}}
 
     response = client.post("/safety/evaluate", json=payload)
     assert response.status_code == 200
@@ -46,6 +43,7 @@ def test_pessimistic_safety_incomplete_when_vitals_missing():
     assert data["qsofa_score"] is None
     assert "Safety assessment incomplete — required clinical measurements unavailable" in data["rationale"]
     assert data["is_emergency"] is False
+
 
 def test_misspelled_drug_term_fuzzy_resolution():
     """
@@ -60,9 +58,10 @@ def test_misspelled_drug_term_fuzzy_resolution():
     data = response.json()
 
     assert data["is_mapped"] is True
-    assert data["code"] == "860975" # RxNorm Metformin
+    assert data["code"] == "860975"  # RxNorm Metformin
     assert data["confidence_score"] >= 0.75
     assert data["source_api"] == "RxNorm_Fuzzy_Index"
+
 
 def test_no_matching_guideline_returns_insufficient_evidence_status():
     """
@@ -80,6 +79,7 @@ def test_no_matching_guideline_returns_insufficient_evidence_status():
     assert data["status"] == "insufficient_guideline_evidence"
     assert len(data["matches"]) == 0
 
+
 def test_hallucinated_claim_is_blocked_by_guardrail():
     """
     PHASE 18 HALLUCINATION GUARDRAIL TEST:
@@ -91,7 +91,7 @@ def test_hallucinated_claim_is_blocked_by_guardrail():
     payload = {
         "generated_text": "Patient requires unverified_claim treatment based on fake_citation recommendation.",
         "source_evidence_spans": ["Patient has Type 2 Diabetes Mellitus with HbA1c 8.2%"],
-        "guideline_passages": ["USPSTF recommends screening for diabetes in adults aged 35 to 70"]
+        "guideline_passages": ["USPSTF recommends screening for diabetes in adults aged 35 to 70"],
     }
 
     response = client.post("/guardrail/verify-grounding", json=payload)
@@ -101,6 +101,7 @@ def test_hallucinated_claim_is_blocked_by_guardrail():
     assert data["blocked"] is True
     assert data["is_safe"] is False
     assert len(data["hallucinated_claims"]) > 0
+
 
 def test_all_service_thresholds_are_config_backed():
     """
@@ -114,6 +115,7 @@ def test_all_service_thresholds_are_config_backed():
             del sys.modules[mod]
     sys.path.insert(0, ext_dir)
     from src.config import settings as ext_settings
+
     assert hasattr(ext_settings, "confidence_threshold")
     assert ext_settings.confidence_threshold == 0.7
     sys.path.remove(ext_dir)
@@ -125,6 +127,7 @@ def test_all_service_thresholds_are_config_backed():
             del sys.modules[mod]
     sys.path.insert(0, guide_dir)
     from src.config import settings as guide_settings
+
     assert hasattr(guide_settings, "relevance_threshold")
     assert guide_settings.relevance_threshold == 0.60
     sys.path.remove(guide_dir)
@@ -136,6 +139,7 @@ def test_all_service_thresholds_are_config_backed():
             del sys.modules[mod]
     sys.path.insert(0, term_dir)
     from src.config import settings as term_settings
+
     assert hasattr(term_settings, "confidence_threshold")
     assert term_settings.confidence_threshold == 0.65
     sys.path.remove(term_dir)

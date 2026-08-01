@@ -1,9 +1,10 @@
-import os
-import sys
-import pytest
 import importlib.util
+import os
 from pathlib import Path
+import sys
+
 from fastapi.testclient import TestClient
+import pytest
 
 os.environ["EHR_CLIENT_SECRET"] = "test_ehr_secret_2026"
 os.environ["EHR_API_KEY"] = "test_ehr_api_key_2026"
@@ -14,9 +15,10 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
+
 def load_app(service_name: str):
     for k in list(sys.modules.keys()):
-        if k == 'src' or k.startswith('src.'):
+        if k == "src" or k.startswith("src."):
             del sys.modules[k]
 
     service_dir = REPO_ROOT / "services" / service_name
@@ -28,6 +30,7 @@ def load_app(service_name: str):
     spec.loader.exec_module(module)
     sys.path.pop(0)
     return module.app
+
 
 SERVICES_TO_TEST = [
     ("document-security-filter", "/filter/scan", "post"),
@@ -50,8 +53,9 @@ SERVICES_TO_TEST = [
     ("clinical-workspace", "/workspace/reviews", "get"),
     ("compliance-dashboard", "/compliance/audit-trail", "get"),
     ("metrics-dashboard", "/metrics/kpis", "get"),
-    ("orchestrator", "/orchestrator/documents", "post")
+    ("orchestrator", "/orchestrator/documents", "post"),
 ]
+
 
 @pytest.mark.parametrize("service_name,route,method", SERVICES_TO_TEST)
 def test_service_openapi_schema_contains_route(service_name, route, method):

@@ -18,14 +18,17 @@ KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "clinintake")
 JWT_SECRET_KEY = get_secret("JWT_SECRET_KEY", default="clinintake_default_dev_signing_key_2026")
 
+
 def _b64_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("utf-8")
+
 
 def _b64_decode(data_str: str) -> bytes:
     padding = 4 - (len(data_str) % 4)
     if padding != 4:
-        data_str += '=' * padding
+        data_str += "=" * padding
     return base64.urlsafe_b64decode(data_str)
+
 
 def decode_and_verify_jwt(token: str) -> dict[str, Any]:
     """
@@ -40,8 +43,8 @@ def decode_and_verify_jwt(token: str) -> dict[str, Any]:
         header_b64, payload_b64, sig_b64 = parts
 
         # Decode header & payload
-        header = json.loads(_b64_decode(header_b64).decode('utf-8'))
-        payload = json.loads(_b64_decode(payload_b64).decode('utf-8'))
+        header = json.loads(_b64_decode(header_b64).decode("utf-8"))
+        payload = json.loads(_b64_decode(payload_b64).decode("utf-8"))
 
         # Expiration Check
         exp = payload.get("exp", 0)
@@ -56,25 +59,21 @@ def decode_and_verify_jwt(token: str) -> dict[str, Any]:
                 get_secret("JWT_SECRET_KEY", default="clinintake_default_dev_signing_key_2026"),
                 "test_authorization_matrix_secret_key_2026",
                 "clinintake_default_dev_signing_key_2026",
-                os.getenv("JWT_SECRET_KEY", "")
+                os.getenv("JWT_SECRET_KEY", ""),
             ]
             message = f"{header_b64}.{payload_b64}"
             valid = False
             for k in keys_to_try:
                 if not k:
                     continue
-                expected_sig = hmac.new(
-                    k.encode('utf-8'),
-                    message.encode('utf-8'),
-                    hashlib.sha256
-                ).digest()
-                computed_b64 = _b64_encode(expected_sig).rstrip('=')
-                target_sig = sig_b64.rstrip('=')
+                expected_sig = hmac.new(k.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
+                computed_b64 = _b64_encode(expected_sig).rstrip("=")
+                target_sig = sig_b64.rstrip("=")
                 if computed_b64 == target_sig:
                     valid = True
                     break
             if not valid:
-                primary_sig = _b64_encode(hmac.new(keys_to_try[0].encode('utf-8'), message.encode('utf-8'), hashlib.sha256).digest())
+                primary_sig = _b64_encode(hmac.new(keys_to_try[0].encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest())
                 raise HTTPException(status_code=401, detail=f"Invalid token signature for sub={payload.get('sub')}. Target={sig_b64}, Computed={primary_sig}, Key={keys_to_try[0]}")
         elif alg == "RS256":
             # For Keycloak RS256 local dev tokens, verify structure & exp
@@ -113,7 +112,7 @@ def decode_and_verify_jwt(token: str) -> dict[str, Any]:
             "iss": payload.get("iss", ""),
             "aud": payload.get("aud", ""),
             "exp": exp,
-            "payload": payload
+            "payload": payload,
         }
     except HTTPException:
         raise
@@ -130,15 +129,14 @@ async def get_current_user_claims(credentials: HTTPAuthorizationCredentials | No
 
 def require_roles(allowed_roles: list[str]) -> Callable:
     """FastAPI Dependency Factory: Requires user to have at least one of the specified roles."""
+
     async def role_checker(claims: dict[str, Any] = Depends(get_current_user_claims)) -> dict[str, Any]:
         user_roles = claims.get("roles", [])
         # Check if any allowed role matches
         if not any(role in user_roles for role in allowed_roles):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Insufficient privileges. Operation requires one of roles: {allowed_roles}"
-            )
+            raise HTTPException(status_code=403, detail=f"Insufficient privileges. Operation requires one of roles: {allowed_roles}")
         return claims
+
     return role_checker
 
 
@@ -148,18 +146,10 @@ async def require_m2m_service(claims: dict[str, Any] = Depends(get_current_user_
     client_id = claims.get("client_id", "")
     sub = claims.get("sub", "")
 
-    is_m2m = (
-        "service:internal" in user_roles or
-        client_id == "clinintake-m2m" or
-        sub.startswith("service:") or
-        "service" in user_roles
-    )
+    is_m2m = "service:internal" in user_roles or client_id == "clinintake-m2m" or sub.startswith("service:") or "service" in user_roles
 
     if not is_m2m:
-        raise HTTPException(
-            status_code=403,
-            detail="Machine-to-machine service authentication required"
-        )
+        raise HTTPException(status_code=403, detail="Machine-to-machine service authentication required")
     return claims
 
 
@@ -171,12 +161,12 @@ def create_test_jwt(user_id: str = "dr_smith", roles: list[str] | None = None, e
         "username": user_id,
         "roles": roles or ["clinician:review", "clinician:approve"],
         "exp": int(time.time()) + exp_seconds,
-        "iss": "http://localhost:8085/realms/clinintake"
+        "iss": "http://localhost:8085/realms/clinintake",
     }
-    header_b64 = _b64_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = _b64_encode(json.dumps(payload).encode('utf-8'))
+    header_b64 = _b64_encode(json.dumps(header).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload).encode("utf-8"))
     message = f"{header_b64}.{payload_b64}"
     key = get_secret("JWT_SECRET_KEY", default="clinintake_default_dev_signing_key_2026")
-    sig = hmac.new(key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).digest()
+    sig = hmac.new(key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
     sig_b64 = _b64_encode(sig)
     return f"{message}.{sig_b64}"

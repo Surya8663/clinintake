@@ -1,5 +1,3 @@
-import os
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -55,5 +53,6 @@ class OrchestratorSettings(BaseSettings):
     audit_service_url: str = Field(...)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
 
 settings = OrchestratorSettings()

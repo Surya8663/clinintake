@@ -54,10 +54,7 @@ def _build_user_prompt(ocr_text: str, ocr_words: list[dict[str, Any]] | None = N
 import httpx
 
 
-def call_llm_extraction(
-    ocr_text: str,
-    ocr_words: list[dict[str, Any]] | None = None
-) -> dict[str, Any]:
+def call_llm_extraction(ocr_text: str, ocr_words: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """
     Calls the configured Lyzr Extraction Agent (agent_ext_clin_v3) with Responsible AI governance.
     Enforces prompt injection checks and re-validates returned JSON output.
@@ -79,11 +76,7 @@ def call_llm_extraction(
     lyzr_url = f"{getattr(settings, 'lyzr_base_url', 'https://api.lyzr.ai')}/v3/agents/agent_ext_clin_v3/execute"
     try:
         with httpx.Client(timeout=10.0) as client:
-            res = client.post(
-                lyzr_url,
-                json={"prompt": user_prompt, "system_prompt": EXTRACTION_SYSTEM_PROMPT},
-                headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"}
-            )
+            res = client.post(lyzr_url, json={"prompt": user_prompt, "system_prompt": EXTRACTION_SYSTEM_PROMPT}, headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"})
             if res.status_code == 200:
                 raw_data = res.json()
                 if "response" in raw_data and isinstance(raw_data["response"], dict):
@@ -102,21 +95,21 @@ def call_llm_extraction(
         "diagnoses": [
             {
                 "name": {"value": "Essential Hypertension", "literal_quote": "Essential Hypertension", "confidence": 0.95},
-                "icd10_code": {"value": "I10", "literal_quote": "ICD-10: I10", "confidence": 0.95}
+                "icd10_code": {"value": "I10", "literal_quote": "ICD-10: I10", "confidence": 0.95},
             }
         ],
         "medications": [
             {
                 "name": {"value": "Lisinopril 10mg oral daily", "literal_quote": "Lisinopril 10mg daily", "confidence": 0.92},
                 "rxnorm_code": {"value": "314076", "literal_quote": "RxNorm: 314076", "confidence": 0.90},
-                "dosage": {"value": "10mg daily", "literal_quote": "10mg daily", "confidence": 0.92}
+                "dosage": {"value": "10mg daily", "literal_quote": "10mg daily", "confidence": 0.92},
             }
         ],
         "labs": [
             {
                 "name": {"value": "Fasting Plasma Glucose", "literal_quote": "Fasting Glucose: 115 mg/dL", "confidence": 0.94},
                 "loinc_code": {"value": "1558-6", "literal_quote": "LOINC: 1558-6", "confidence": 0.90},
-                "value": {"value": "115 mg/dL", "literal_quote": "115 mg/dL", "confidence": 0.94}
+                "value": {"value": "115 mg/dL", "literal_quote": "115 mg/dL", "confidence": 0.94},
             }
-        ]
+        ],
     }

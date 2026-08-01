@@ -2,6 +2,7 @@
 Unit tests for the circuit breaker with exponential backoff.
 Verifies CLOSED → OPEN → HALF_OPEN → CLOSED state transitions.
 """
+
 import asyncio
 from pathlib import Path
 import sys

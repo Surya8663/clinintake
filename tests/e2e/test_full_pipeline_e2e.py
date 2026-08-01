@@ -1,8 +1,9 @@
+import importlib
 import os
 import sys
-import importlib
-import pytest
+
 from fastapi.testclient import TestClient
+import pytest
 
 os.environ["EHR_CLIENT_SECRET"] = "test_ehr_secret_2026"
 os.environ["EHR_API_KEY"] = "test_ehr_api_key_2026"
@@ -12,6 +13,7 @@ os.environ["KEYCLOAK_CLIENT_SECRET"] = "test_keycloak_client_secret_2026"
 os.environ["ENCRYPTION_KEY"] = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["VAULT_DATABASE_URL"] = "sqlite+aiosqlite:///file:auditdb?mode=memory&cache=shared&uri=true"
+
 
 def _load_service_app(service_name: str):
     service_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "services", service_name))
@@ -27,6 +29,7 @@ def _load_service_app(service_name: str):
         sys.path.remove(service_dir)
     return main_mod.app
 
+
 def test_full_end_to_end_pipeline_integration_traceability():
     """
     PHASE 17 FULL E2E INTEGRATION TEST:
@@ -39,7 +42,7 @@ def test_full_end_to_end_pipeline_integration_traceability():
     doc_path = os.path.join(os.path.dirname(__file__), "synthetic_clinical_referral.txt")
     assert os.path.exists(doc_path)
 
-    with open(doc_path, "r", encoding="utf-8") as f:
+    with open(doc_path, encoding="utf-8") as f:
         raw_clinical_text = f.read()
 
     doc_id = "DOC-E2E-FULL-TRACE-2026"
@@ -69,7 +72,8 @@ def test_full_end_to_end_pipeline_integration_traceability():
         pass
 
     # STAGE 2: Document Security Filter (Magic Bytes, ClamAV, Regex Prompt Injection)
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
     sec_app = _load_service_app("document-security-filter")
     sec_client = TestClient(sec_app)
     pdf_bytes = b"%PDF-1.4\n1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n2 0 obj <</Type /Pages /Kids [] /Count 0>> endobj\nxref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\ntrailer <</Size 3 /Root 1 0 R>>\nstartxref\n100\n%%EOF\n"
@@ -85,6 +89,7 @@ def test_full_end_to_end_pipeline_integration_traceability():
 
     # STAGE 3: Patient Identity Resolution (Jaro-Winkler / Fellegi-Sunter)
     import asyncio
+
     service_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "services", "patient-identity-service"))
     for mod in list(sys.modules.keys()):
         if mod == "src" or mod.startswith("src."):
@@ -92,17 +97,23 @@ def test_full_end_to_end_pipeline_integration_traceability():
     if service_dir not in sys.path:
         sys.path.insert(0, service_dir)
     from src.config import settings as id_settings
+
     id_settings.database_url = "sqlite+aiosqlite:///file:testdb?mode=memory&cache=shared&uri=true"
-    from src.main import app as id_app
-    from src.database import engine as id_engine, async_session as id_session
-    from src.models import Base as IdBase, Patient
     import datetime
+
+    from src.database import async_session as id_session
+    from src.database import engine as id_engine
+    from src.main import app as id_app
+    from src.models import Base as IdBase
+    from src.models import Patient
+
     async def _init_id_db():
         async with id_engine.begin() as conn:
             await conn.run_sync(IdBase.metadata.create_all)
         async with id_session() as s:
             s.add(Patient(id="PAT-001", first_name="John", last_name="Doe", date_of_birth=datetime.date(1980, 1, 1), gender="Male"))
             await s.commit()
+
     asyncio.run(_init_id_db())
 
     if service_dir in sys.path:
@@ -149,7 +160,7 @@ def test_full_end_to_end_pipeline_integration_traceability():
         "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
         "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
         "code": {"coding": [{"system": "http://snomed.info/sct", "code": "44054006", "display": "Type 2 Diabetes Mellitus"}]},
-        "subject": {"reference": "Patient/SYN-99482"}
+        "subject": {"reference": "Patient/SYN-99482"},
     }
     val_resp = val_client.post("/validate/schema", json={"resource_type": "Condition", "fhir_resource": valid_cond})
     assert val_resp.status_code == 200
@@ -163,7 +174,9 @@ def test_full_end_to_end_pipeline_integration_traceability():
     # STAGE 9: Temporal Reasoning Engine (Date Arithmetic Care Gap Calculation)
     temp_app = _load_service_app("temporal-reasoning-engine")
     temp_client = TestClient(temp_app)
-    temp_resp = temp_client.post("/temporal/evaluate", json={"procedure_name": "Colonoscopy", "last_screening_date": "2021-06-15", "patient_age": 58, "guideline_interval_months": 36, "reference_date": "2026-07-25"})
+    temp_resp = temp_client.post(
+        "/temporal/evaluate", json={"procedure_name": "Colonoscopy", "last_screening_date": "2021-06-15", "patient_age": 58, "guideline_interval_months": 36, "reference_date": "2026-07-25"}
+    )
     assert temp_resp.status_code == 200
     assert temp_resp.json()["status"] == "overdue"
 
@@ -176,7 +189,8 @@ def test_full_end_to_end_pipeline_integration_traceability():
     # STAGE 11: Guideline RAG (USPSTF Semantic Retrieval)
     guide_app = _load_service_app("guideline-retrieval-service")
     guide_client = TestClient(guide_app)
-    from src.models import GuidelineQueryResponse, GuidelineMatch
+    from src.models import GuidelineMatch, GuidelineQueryResponse
+
     mock_resp = GuidelineQueryResponse(
         query="Colorectal Cancer Screening intervals",
         status="success",
@@ -190,9 +204,9 @@ def test_full_end_to_end_pipeline_integration_traceability():
                 section="Screening Recommendation",
                 clause_id="REC-CRC-001",
                 similarity_score=0.89,
-                chunk_checksum="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                chunk_checksum="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             )
-        ]
+        ],
     )
     with patch("src.main.qdrant_repo.search_guidelines", return_value=mock_resp):
         guide_resp = guide_client.post("/guidelines/retrieve", json={"query": "Colorectal Cancer Screening intervals"})
@@ -208,29 +222,29 @@ def test_full_end_to_end_pipeline_integration_traceability():
     # STAGE 13: Care-Gap Explanation Agent
     expl_app = _load_service_app("care-gap-explanation-agent")
     expl_client = TestClient(expl_app)
-    expl_resp = expl_client.post("/care-gap/explain", json={
-        "document_id": doc_id,
-        "patient_id": patient_id,
-        "temporal_care_gaps": [{"measure_name": "Colorectal Cancer Screening", "status": "overdue", "due_date": "2024-06-15"}],
-        "guideline_passages": [{"source": "USPSTF Colorectal Cancer 2021", "clause_id": "REC-CRC-001", "section": "Screening", "passage_text": "Screening recommended for adults 45-75"}],
-        "document_evidence_spans": [{"field_name": "last_screening", "source_quote": "2021-06-15"}]
-    })
+    expl_resp = expl_client.post(
+        "/care-gap/explain",
+        json={
+            "document_id": doc_id,
+            "patient_id": patient_id,
+            "temporal_care_gaps": [{"measure_name": "Colorectal Cancer Screening", "status": "overdue", "due_date": "2024-06-15"}],
+            "guideline_passages": [{"source": "USPSTF Colorectal Cancer 2021", "clause_id": "REC-CRC-001", "section": "Screening", "passage_text": "Screening recommended for adults 45-75"}],
+            "document_evidence_spans": [{"field_name": "last_screening", "source_quote": "2021-06-15"}],
+        },
+    )
     assert expl_resp.status_code == 200
 
     # STAGE 14: Referral Drafting Agent
     ref_app = _load_service_app("referral-drafting-agent")
     ref_client = TestClient(ref_app)
-    ref_resp = ref_client.post("/referral/draft", json={
-        "document_id": doc_id,
-        "patient_id": patient_id,
-        "care_gap_explanations": [expl_resp.json()["explanation_summary"]]
-    })
+    ref_resp = ref_client.post("/referral/draft", json={"document_id": doc_id, "patient_id": patient_id, "care_gap_explanations": [expl_resp.json()["explanation_summary"]]})
     assert ref_resp.status_code == 200
 
     # STAGE 15: Clinical Workspace (Signed Clinician Approval)
     ws_app = _load_service_app("clinical-workspace")
     ws_client = TestClient(ws_app)
     from src.main import REVIEW_DATABASE
+
     REVIEW_DATABASE[doc_id] = {
         "document_id": doc_id,
         "patient_id": patient_id,
@@ -238,14 +252,13 @@ def test_full_end_to_end_pipeline_integration_traceability():
         "created_at": "2026-07-25T10:00:00Z",
         "referral_text": "Draft referral text",
         "evidence_spans": [],
-        "decision": None
+        "decision": None,
     }
-    ws_resp = ws_client.post(f"/workspace/decision/{doc_id}", json={
-        "decision": "APPROVED",
-        "clinician_id": "dr_smith",
-        "digital_signature": "SIG-HMAC256-E2E-TEST",
-        "notes": "Approved for EHR write."
-    }, headers=auth_headers)
+    ws_resp = ws_client.post(
+        f"/workspace/decision/{doc_id}",
+        json={"decision": "APPROVED", "clinician_id": "dr_smith", "digital_signature": "SIG-HMAC256-E2E-TEST", "notes": "Approved for EHR write."},
+        headers=auth_headers,
+    )
     assert ws_resp.status_code == 200
     assert ws_resp.json()["signed_event_emitted"] is True
 
@@ -253,24 +266,32 @@ def test_full_end_to_end_pipeline_integration_traceability():
     fhir_app = _load_service_app("fhir-integration-service")
     fhir_client = TestClient(fhir_app)
     with patch("src.main.execute_fhir_transaction", return_value=("BUNDLE-E2E-99482", ["Patient/SYN-99482"])):
-        fhir_resp = fhir_client.post("/fhir/write-transaction", json={
-            "document_id": doc_id,
-            "patient_id": patient_id,
-            "idempotency_key": f"IDEM-E2E-TRACE-{doc_id}",
-            "fhir_resources": [{"resourceType": "Patient", "id": patient_id, "name": [{"family": "Doe", "given": ["Johnathan"]}]}]
-        }, headers=m2m_headers)
+        fhir_resp = fhir_client.post(
+            "/fhir/write-transaction",
+            json={
+                "document_id": doc_id,
+                "patient_id": patient_id,
+                "idempotency_key": f"IDEM-E2E-TRACE-{doc_id}",
+                "fhir_resources": [{"resourceType": "Patient", "id": patient_id, "name": [{"family": "Doe", "given": ["Johnathan"]}]}],
+            },
+            headers=m2m_headers,
+        )
         assert fhir_resp.status_code == 200
         assert fhir_resp.json()["status"] == "persisted"
 
     # STAGE 17: Audit Service (Cryptographic Hash Chain Confirmation)
     audit_app = _load_service_app("audit-service")
     with TestClient(audit_app) as audit_client:
-        audit_resp = audit_client.post("/audit/events", json={
-            "event_id": f"EVT-E2E-{doc_id}",
-            "document_id": doc_id,
-            "service_name": "orchestrator",
-            "event_type": "ehr_persisted",
-            "payload": {"fhir_bundle_id": fhir_resp.json()["fhir_bundle_id"]}
-        }, headers=m2m_headers)
+        audit_resp = audit_client.post(
+            "/audit/events",
+            json={
+                "event_id": f"EVT-E2E-{doc_id}",
+                "document_id": doc_id,
+                "service_name": "orchestrator",
+                "event_type": "ehr_persisted",
+                "payload": {"fhir_bundle_id": fhir_resp.json()["fhir_bundle_id"]},
+            },
+            headers=m2m_headers,
+        )
         assert audit_resp.status_code == 200, f"audit_resp failed: {audit_resp.status_code} {audit_resp.text}"
         assert audit_resp.json()["entry_hash"] is not None

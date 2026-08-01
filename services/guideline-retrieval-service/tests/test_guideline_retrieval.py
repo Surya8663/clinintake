@@ -32,7 +32,7 @@ def setup_test_qdrant():
             clause_id="USPSTF-DM-B",
             text="prediabetes and type 2 diabetes screening in adults overweight obesity",
             chunk_checksum="chk001",
-            document_checksum="docchk001"
+            document_checksum="docchk001",
         ),
         GuidelineChunk(
             chunk_id="USPSTF-MAMMO-01",
@@ -46,7 +46,7 @@ def setup_test_qdrant():
             clause_id="USPSTF-BC-A",
             text="screening mammography for women breast cancer",
             chunk_checksum="chk002",
-            document_checksum="docchk002"
+            document_checksum="docchk002",
         ),
     ]
     qdrant_repo.upsert_chunks(chunks)
@@ -60,13 +60,7 @@ def test_guideline_retrieval_health():
 
 
 def test_valid_guideline_semantic_retrieval():
-    response = client.post(
-        "/guidelines/retrieve",
-        json={
-            "query": "prediabetes and type 2 diabetes screening in adults overweight obesity",
-            "min_relevance_score": 0.60
-        }
-    )
+    response = client.post("/guidelines/retrieve", json={"query": "prediabetes and type 2 diabetes screening in adults overweight obesity", "min_relevance_score": 0.60})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -80,13 +74,7 @@ def test_valid_guideline_semantic_retrieval():
 
 
 def test_metadata_filtering_support():
-    response = client.post(
-        "/guidelines/retrieve",
-        json={
-            "query": "screening mammography for women breast cancer",
-            "metadata_filter": {"version": "2024-V1"}
-        }
-    )
+    response = client.post("/guidelines/retrieve", json={"query": "screening mammography for women breast cancer", "metadata_filter": {"version": "2024-V1"}})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -104,13 +92,7 @@ def test_insufficient_guideline_evidence_behavior_triggered():
     """
     irrelevant_query = "orbital space mechanics rocket propulsion trajectories in vacuum"
 
-    response = client.post(
-        "/guidelines/retrieve",
-        json={
-            "query": irrelevant_query,
-            "min_relevance_score": 0.60
-        }
-    )
+    response = client.post("/guidelines/retrieve", json={"query": irrelevant_query, "min_relevance_score": 0.60})
     assert response.status_code == 200
     data = response.json()
 

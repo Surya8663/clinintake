@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 
@@ -9,6 +8,7 @@ class TemporalEvaluateRequest(BaseModel):
     risk_category: str = Field("average", description="Risk category: 'average', 'high', 'very_high'")
     guideline_interval_months: int = Field(12, description="Recommended screening interval in months")
     reference_date: str | None = Field(None, description="Current evaluation date override (YYYY-MM-DD) for testing")
+
 
 class TemporalEvaluateResponse(BaseModel):
     procedure_name: str

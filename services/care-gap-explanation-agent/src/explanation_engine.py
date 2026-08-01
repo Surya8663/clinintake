@@ -2,10 +2,14 @@ from src.logger import logger
 from src.models import CareGapExplanationResponse, CitationItem, ClinicalDecisionPackage, DocumentSpanItem
 
 
+class GroundingVerificationError(Exception):
+    """Raised when LLM-generated explanation citations cannot be verified against grounded guideline evidence."""
+
+
 def _parse_deterministic_findings(package: ClinicalDecisionPackage):
     """
     Deterministic parsing of temporal gaps, safety flags, and drug interactions.
-    This logic is correct and preserved as-is — its output feeds INTO the LLM prompt as grounding context.
+    Outputs feed INTO the LLM prompt as grounding context.
     """
     gaps_found: list[str] = []
     citations: list[CitationItem] = []
@@ -28,12 +32,12 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
     for passage in package.guideline_passages:
         citations.append(
             CitationItem(
-                source_title=passage.get("source", "USPSTF Guideline"),
-                version=passage.get("version", "2021"),
-                section=passage.get("section", "Recommendation"),
-                clause_id=passage.get("clause_id", "CLAUSE-01"),
+                source_title=passage.get("source", ""),
+                version=passage.get("version", ""),
+                section=passage.get("section", ""),
+                clause_id=passage.get("clause_id", ""),
                 passage_text=passage.get("passage_text", ""),
-                similarity_score=passage.get("similarity_score", 1.0),
+                similarity_score=float(passage.get("similarity_score", 1.0)),
             )
         )
 
@@ -50,15 +54,8 @@ def _parse_deterministic_findings(package: ClinicalDecisionPackage):
     return gaps_found, citations, spans
 
 
-def _build_deterministic_summary(gaps_found: list[str]) -> str:
-    """Builds the deterministic f-string summary (used as labeled fallback only)."""
-    if gaps_found:
-        return f"Clinical Decision Package analysis identified {len(gaps_found)} key clinical care gap(s) or safety priority item(s): " + "; ".join(gaps_found)
-    return "Clinical Decision Package analysis completed: No open care gaps or clinical safety red flags identified."
-
-
 def _get_valid_citation_keys(package: ClinicalDecisionPackage) -> set[str]:
-    """Builds the set of (source_title, clause_id) tuples that actually exist in the package."""
+    """Builds the set of valid (source, clause_id) strings from package.guideline_passages."""
     valid_keys = set()
     for passage in package.guideline_passages:
         source = passage.get("source", "")
@@ -93,31 +90,53 @@ def _verify_citations(llm_result: dict, valid_keys: set[str]) -> list[str]:
 def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapExplanationResponse:
     """
     Generates grounded care gap explanations using LLM reasoning with citation verification.
-
-    Flow:
-    1. Deterministic parsing of temporal gaps, safety flags, drug interactions (preserved as-is)
-    2. LLM call with parsed context as grounding input
-    3. Post-generation citation verification against package.guideline_passages
-    4. If LLM cites something not in the package → retry once with correction
-    5. If retry also fails → fall back to deterministic summary with generation_mode="deterministic_fallback"
     """
     from src.llm_client import call_llm_explanation
 
     logger.info(f"Generating care gap explanation for document_id={package.document_id}")
 
-    # Step 1: Deterministic parsing (preserved exactly)
     gaps_found, citations, spans = _parse_deterministic_findings(package)
+
+    # Rule C5: Empty guideline evidence must return exactly "Insufficient guideline evidence"
+    if not package.guideline_passages:
+        logger.info(f"No guideline passages present in package for doc_id={package.document_id}. Returning 'Insufficient guideline evidence'.")
+        return CareGapExplanationResponse(
+            document_id=package.document_id,
+            explanation_summary="Insufficient guideline evidence",
+            care_gaps_found=gaps_found,
+            cited_guideline_passages=[],
+            document_evidence_spans=spans,
+            generation_mode="llm",
+        )
+
     valid_keys = _get_valid_citation_keys(package)
-
-    # Step 2: Guardrail check on deterministic output
-    deterministic_summary = _build_deterministic_summary(gaps_found)
-    if "unverified_claim" in deterministic_summary.lower() or "fake_citation" in deterministic_summary.lower():
-        logger.warning(f"Guardrail BLOCKED explanation for doc_id={package.document_id}: Hallucination Detected")
-
-    # Step 3: Try LLM generation
     guideline_passages_raw = list(package.guideline_passages or [])
 
-    try:
+    # Call LLM for grounded explanation
+    llm_result = call_llm_explanation(
+        care_gaps_found=gaps_found,
+        guideline_passages=guideline_passages_raw,
+        safety_assessment=package.safety_assessment,
+        drug_interactions=package.drug_interactions,
+        document_id=package.document_id,
+        patient_id=package.patient_id,
+    )
+
+    # Verify LLM citations against package guideline passages
+    violations = _verify_citations(llm_result, valid_keys)
+
+    if violations:
+        logger.warning(f"LLM citation verification failed (attempt 1) for doc_id={package.document_id}: {violations}")
+
+        correction = (
+            f"Your previous response contained {len(violations)} citation(s) that do NOT exist in the provided "
+            f"Clinical Decision Package: {'; '.join(violations)}. "
+            f"You MUST only cite sources from the provided guideline_passages. "
+            f"The valid source_titles are: {[p.get('source', '') for p in guideline_passages_raw]}. "
+            f"The valid clause_ids are: {[p.get('clause_id', '') for p in guideline_passages_raw]}. "
+            f"Regenerate the explanation using ONLY these citations."
+        )
+
         llm_result = call_llm_explanation(
             care_gaps_found=gaps_found,
             guideline_passages=guideline_passages_raw,
@@ -125,66 +144,23 @@ def generate_care_gap_explanation(package: ClinicalDecisionPackage) -> CareGapEx
             drug_interactions=package.drug_interactions,
             document_id=package.document_id,
             patient_id=package.patient_id,
+            correction_instruction=correction,
         )
 
-        # Step 4: Verify citations
-        violations = _verify_citations(llm_result, valid_keys)
+        retry_violations = _verify_citations(llm_result, valid_keys)
+        if retry_violations:
+            logger.error(f"LLM citation verification failed AGAIN (attempt 2) for doc_id={package.document_id}: {retry_violations}.")
+            raise GroundingVerificationError(f"Grounding verification failed: LLM generated unsupported citations: {retry_violations}")
 
-        if violations:
-            logger.warning(f"LLM citation verification failed (attempt 1) for doc_id={package.document_id}: " f"{len(violations)} invalid citation(s): {violations}")
+    llm_summary = llm_result.get("explanation_summary", "")
+    if not llm_summary:
+        raise GroundingVerificationError("LLM response did not contain an explanation summary.")
 
-            # Retry once with explicit correction
-            correction = (
-                f"Your previous response contained {len(violations)} citation(s) that do NOT exist in the provided "
-                f"Clinical Decision Package: {'; '.join(violations)}. "
-                f"You MUST only cite sources from the provided guideline_passages. "
-                f"The valid source_titles are: {[p.get('source', '') for p in guideline_passages_raw]}. "
-                f"The valid clause_ids are: {[p.get('clause_id', '') for p in guideline_passages_raw]}. "
-                f"Regenerate the explanation using ONLY these citations."
-            )
-
-            llm_result = call_llm_explanation(
-                care_gaps_found=gaps_found,
-                guideline_passages=guideline_passages_raw,
-                safety_assessment=package.safety_assessment,
-                drug_interactions=package.drug_interactions,
-                document_id=package.document_id,
-                patient_id=package.patient_id,
-                correction_instruction=correction,
-            )
-
-            # Verify retry
-            retry_violations = _verify_citations(llm_result, valid_keys)
-            if retry_violations:
-                logger.error(f"LLM citation verification failed AGAIN (attempt 2) for doc_id={package.document_id}: " f"{retry_violations}. Falling back to deterministic summary.")
-                return CareGapExplanationResponse(
-                    document_id=package.document_id,
-                    explanation_summary=deterministic_summary,
-                    care_gaps_found=gaps_found,
-                    cited_guideline_passages=citations,
-                    document_evidence_spans=spans,
-                    generation_mode="deterministic_fallback",
-                )
-
-        # LLM succeeded (first attempt or retry passed verification)
-        llm_summary = llm_result.get("explanation_summary", deterministic_summary)
-
-        return CareGapExplanationResponse(
-            document_id=package.document_id,
-            explanation_summary=llm_summary,
-            care_gaps_found=gaps_found,
-            cited_guideline_passages=citations,
-            document_evidence_spans=spans,
-            generation_mode="llm",
-        )
-
-    except Exception as e:
-        logger.error(f"LLM explanation generation failed for doc_id={package.document_id}: {e}. Using deterministic fallback.")
-        return CareGapExplanationResponse(
-            document_id=package.document_id,
-            explanation_summary=deterministic_summary,
-            care_gaps_found=gaps_found,
-            cited_guideline_passages=citations,
-            document_evidence_spans=spans,
-            generation_mode="deterministic_fallback",
-        )
+    return CareGapExplanationResponse(
+        document_id=package.document_id,
+        explanation_summary=llm_summary,
+        care_gaps_found=gaps_found,
+        cited_guideline_passages=citations,
+        document_evidence_spans=spans,
+        generation_mode="llm",
+    )

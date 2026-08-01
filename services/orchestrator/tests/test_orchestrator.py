@@ -3,15 +3,26 @@ import hmac
 import json
 import os
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+import httpx
 import pytest
 from transitions import MachineError
 
 os.environ["JWT_SECRET_KEY"] = "test_orchestrator_jwt_secret_2026"
+os.environ["LYZR_API_KEY"] = "test_lyzr_api_key_2026"
+os.environ["LYZR_BASE_URL"] = "https://api.lyzr.ai"
+os.environ["LYZR_SUPERFLOW_ID"] = "sf_test_2026"
+os.environ["LYZR_EXTRACTION_AGENT_ID"] = "agent_ext_test"
+os.environ["LYZR_EXPLANATION_AGENT_ID"] = "agent_exp_test"
+os.environ["LYZR_REFERRAL_AGENT_ID"] = "agent_ref_test"
+os.environ["LYZR_POLICY_PROMPT_INJECTION_ID"] = "pol_inj_test"
+os.environ["LYZR_POLICY_GROUNDING_ID"] = "pol_grd_test"
+os.environ["LYZR_WEBHOOK_SECRET"] = "test_webhook_secret_2026"
 
 from services.common.jwt_verifier import _b64_encode
+from src.lyzr_client import LyzrInvalidResponseError, LyzrTimeoutError, LyzrUnavailableError, lyzr_client
 from src.main import app
 from src.persistence import persistence
 from src.state_machine import DocumentWorkflow, transition_workflow
@@ -139,3 +150,52 @@ def test_api_create_document(mock_publish, mock_get_client):
     assert response.status_code == 200
     assert response.json()["document_id"] == "api-doc-123"
     assert response.json()["state"] == "received"
+
+
+def test_real_successful_lyzr_response_validated():
+    """Test F1: Real successful Lyzr response is validated and returned."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "execution_id": "exec_real_12345",
+        "session_id": "sess_real_12345",
+        "trace_id": "trace_real_12345",
+        "status": "RUNNING",
+        "nodes": {"ingestion": "COMPLETED"},
+    }
+
+    with patch.object(httpx.Client, "post", return_value=mock_resp) as mock_post:
+        res = lyzr_client.start_superflow_execution("sf_test_2026", "DOC-001", {"file_path": "/test.pdf"})
+        assert res["execution_id"] == "exec_real_12345"
+        assert res["status"] == "RUNNING"
+        assert res["nodes"] == {"ingestion": "COMPLETED"}
+
+        # Verify request payload sent to external boundary
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args.kwargs
+        assert call_kwargs["json"]["document_id"] == "DOC-001"
+
+
+def test_lyzr_connection_failure_no_execution_id():
+    """Test F2: Lyzr connection failure raises typed LyzrUnavailableError and creates no execution ID."""
+    with patch.object(httpx.Client, "post", side_effect=httpx.ConnectError("Connection refused")):
+        with pytest.raises(LyzrUnavailableError):
+            lyzr_client.start_superflow_execution("sf_test_2026", "DOC-002", {"file_path": "/test.pdf"})
+
+
+def test_lyzr_timeout_does_not_mark_nodes_as_completed():
+    """Test F3: Lyzr timeout raises LyzrTimeoutError and does not mark nodes as completed."""
+    with patch.object(httpx.Client, "post", side_effect=httpx.TimeoutException("Request timed out")):
+        with pytest.raises(LyzrTimeoutError):
+            lyzr_client.start_superflow_execution("sf_test_2026", "DOC-003", {"file_path": "/test.pdf"})
+
+
+def test_lyzr_malformed_response_rejected():
+    """Test F4: Lyzr malformed response is rejected with LyzrInvalidResponseError."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"invalid": "payload_without_execution_id"}
+
+    with patch.object(httpx.Client, "post", return_value=mock_resp):
+        with pytest.raises(LyzrInvalidResponseError):
+            lyzr_client.start_superflow_execution("sf_test_2026", "DOC-004", {"file_path": "/test.pdf"})

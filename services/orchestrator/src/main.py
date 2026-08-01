@@ -109,7 +109,16 @@ async def transition_document(document_id: str, req: TransitionRequest, claims: 
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
 
-from src.lyzr_client import LyzrApiError, LyzrGovernanceViolationError, lyzr_client
+from src.lyzr_client import (
+    LyzrApiError,
+    LyzrGovernanceViolationError,
+    LyzrInvalidResponseError,
+    LyzrRequestError,
+    LyzrServiceError,
+    LyzrTimeoutError,
+    LyzrUnavailableError,
+    lyzr_client,
+)
 
 PROCESSED_CALLBACK_SIGNATURES: set = set()
 
@@ -161,10 +170,19 @@ async def execute_step(document_id: str, claims: dict[str, Any] = Depends(get_cu
         workflow.context["lyzr_trace_id"] = lyzr_result["trace_id"]
         workflow.context["lyzr_status"] = lyzr_result["status"]
         await persistence.save_workflow(workflow)
-    except (LyzrApiError, LyzrGovernanceViolationError) as e:
+    except LyzrApiError as e:
         logger.error(f"[LYZR EXECUTION FAILURE] {e}")
-        err_envelope = ApiErrorEnvelope(code="LYZR_SUPERFLOW_EXECUTION_FAILED", message=str(e), retryable=False, dependency="lyzr-superflow")
-        return JSONResponse(status_code=503 if isinstance(e, LyzrApiError) else 400, content=err_envelope.model_dump())
+        status_code = 503
+        if isinstance(e, (LyzrTimeoutError, LyzrUnavailableError)):
+            status_code = 503
+        elif isinstance(e, LyzrServiceError):
+            status_code = 502
+        elif isinstance(e, (LyzrRequestError, LyzrInvalidResponseError, LyzrGovernanceViolationError)):
+            status_code = 400
+
+        err_envelope = ApiErrorEnvelope(code="LYZR_SUPERFLOW_EXECUTION_FAILED", message=str(e), retryable=isinstance(e, (LyzrTimeoutError, LyzrUnavailableError, LyzrServiceError)), dependency="lyzr-superflow")
+        return JSONResponse(status_code=status_code, content=err_envelope.model_dump())
+
 
     current_state = workflow.state
 

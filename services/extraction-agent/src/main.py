@@ -1,15 +1,35 @@
 import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 import httpx
 
 from src.config import settings
 from src.extractor import perform_quote_grounded_extraction
 from src.fhir_validator import build_and_validate_fhir_resources
+from src.llm_client import LLMGovernanceViolationError, LLMInvalidResponseError, LLMUnavailableError
 from src.logger import logger
 from src.models import ExtractRequest, ExtractResponse
 
 app = FastAPI(title=settings.service_name, description="Quote-Grounded LLM Extraction Agent with FHIR R4 Validation and Emergency Safety Interrupt", version="1.0.0")
+
+
+@app.exception_handler(LLMUnavailableError)
+async def llm_unavailable_handler(request: Request, exc: LLMUnavailableError):
+    logger.error(f"[EXTRACTION FAILURE] LLM Service Unavailable: {exc}")
+    return JSONResponse(status_code=503, content={"detail": f"Extraction LLM Service Unavailable: {exc!s}"})
+
+
+@app.exception_handler(LLMInvalidResponseError)
+async def llm_invalid_response_handler(request: Request, exc: LLMInvalidResponseError):
+    logger.error(f"[EXTRACTION FAILURE] LLM Invalid Response: {exc}")
+    return JSONResponse(status_code=502, content={"detail": f"Extraction LLM Invalid Response: {exc!s}"})
+
+
+@app.exception_handler(LLMGovernanceViolationError)
+async def llm_governance_handler(request: Request, exc: LLMGovernanceViolationError):
+    logger.warning(f"[EXTRACTION GOVERNANCE] {exc}")
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.get("/health")

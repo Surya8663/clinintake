@@ -30,7 +30,6 @@ def locate_bbox_for_quote(quote: str, ocr_words: list[dict[str, Any]] | None) ->
             max_y = max([b.get("y_max", 0) for b in bboxes])
             return [min_x, min_y, max_x, max_y]
 
-    # Default fallback bounding box if fuzzy text match
     return [40, 50, 250, 70]
 
 
@@ -41,8 +40,8 @@ def create_grounded_field(raw_value: str, literal_quote: str, confidence: float,
     bbox = locate_bbox_for_quote(literal_quote, ocr_words)
 
     final_value = raw_value
-    if confidence < threshold or not raw_value or raw_value.lower() == "unknown":
-        logger.info(f"Field confidence {confidence} is below threshold {threshold}. Marking value as 'Incomplete'.")
+    if confidence < threshold or not raw_value or raw_value.lower() in ("unknown", "pat-unknown", "incomplete"):
+        logger.info(f"Field confidence {confidence} is below threshold {threshold} or value is unknown. Marking value as 'Incomplete'.")
         final_value = "Incomplete"
 
     return GroundedField(value=final_value, literal_quote=literal_quote, bbox=bbox, confidence=confidence)
@@ -58,31 +57,8 @@ def perform_quote_grounded_extraction(ocr_text: str, ocr_words: list[dict[str, A
     if not text.strip():
         return ExtractionData(patient_id=create_grounded_field("", "", 0.0, ocr_words, threshold), diagnoses=[], medications=[], labs=[])
 
-    # Call the real LLM for structured extraction
+    # Call the real LLM boundary for structured extraction
     llm_result = call_llm_extraction(ocr_text=text, ocr_words=ocr_words)
-
-    if "ambiguous" in text.lower() or "unclear" in text.lower() or "pat-unknown" in text.lower():
-        llm_result = {
-            "patient_id": {"value": "PAT-UNKNOWN", "literal_quote": "Patient ID: PAT-UNKNOWN", "confidence": 0.30},
-            "diagnoses": [
-                {
-                    "name": {"value": "Unclear blurry text", "literal_quote": "Unclear blurry text", "confidence": 0.30},
-                    "icd10_code": {"value": "I10", "literal_quote": "ICD-10: I10", "confidence": 0.30},
-                }
-            ],
-            "medications": [
-                {
-                    "name": {"value": "Ambiguous blurry dosage", "literal_quote": "Ambiguous blurry dosage", "confidence": 0.30},
-                    "rxnorm_code": {"value": "314076", "literal_quote": "RxNorm: 314076", "confidence": 0.30},
-                    "dosage": {"value": "Ambiguous blurry dosage", "literal_quote": "Ambiguous blurry dosage", "confidence": 0.30},
-                }
-            ],
-            "labs": [],
-        }
-    elif "pat-9901" in text.lower():
-        llm_result["patient_id"] = {"value": "PAT-9901", "literal_quote": "Patient ID: PAT-9901", "confidence": 0.98}
-    elif "pat-77201" in text.lower():
-        llm_result["patient_id"] = {"value": "PAT-77201", "literal_quote": "Patient ID: PAT-77201", "confidence": 0.98}
 
     # --- Map LLM output through existing create_grounded_field() ---
 

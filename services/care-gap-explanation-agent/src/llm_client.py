@@ -6,6 +6,15 @@ import httpx
 from src.config import settings
 from src.logger import logger
 
+
+class LLMUnavailableError(Exception):
+    """Raised when the explanation LLM or Lyzr API service is unavailable or fails."""
+
+
+class LLMInvalidResponseError(Exception):
+    """Raised when the LLM returns invalid JSON or unparsable structure."""
+
+
 EXPLANATION_SYSTEM_PROMPT = """You are a clinical care-gap explanation engine. You receive a structured Clinical Decision Package containing:
 - Temporal care gaps (screening statuses, due dates)
 - Guideline passages (with source_title, version, section, clause_id, passage_text)
@@ -46,10 +55,11 @@ def call_llm_explanation(
 ) -> dict[str, Any]:
     """
     Calls the Lyzr Care Gap Explanation Agent (agent_exp_caregap_v3) with Responsible AI governance.
+    Raises typed LLMUnavailableError if the external endpoint fails or credentials are missing.
     """
-    lyzr_api_key = getattr(settings, "lyzr_api_key", getattr(settings, "llm_api_key", None))
-    if not lyzr_api_key or lyzr_api_key in ("MISSING", "INVALID_CREDENTIALS"):
-        raise RuntimeError("LYZR_API_KEY mandatory configuration missing or invalid. Direct LLM fallback forbidden.")
+    api_key = settings.llm_api_key or settings.lyzr_api_key
+    if not api_key or api_key in ("MISSING", "INVALID_CREDENTIALS"):
+        raise LLMUnavailableError("LYZR_API_KEY / LLM_API_KEY mandatory configuration missing or invalid. Direct LLM fallback forbidden.")
 
     context = {
         "document_id": document_id,
@@ -66,23 +76,26 @@ def call_llm_explanation(
 
     logger.info(f"Calling Lyzr Explanation Agent (doc_id={document_id})...")
 
-    # Try live Lyzr Agent API endpoint, or fallback to governed explanation engine
-    lyzr_url = f"{getattr(settings, 'lyzr_base_url', 'https://api.lyzr.ai')}/v3/agents/agent_exp_caregap_v3/execute"
+    base_url = settings.llm_base_url.rstrip("/") if settings.llm_base_url else "https://api.lyzr.ai"
+    url = f"{base_url}/v3/agents/agent_exp_caregap_v3/execute"
     try:
         with httpx.Client(timeout=10.0) as client:
-            res = client.post(lyzr_url, json={"prompt": user_prompt, "system_prompt": EXPLANATION_SYSTEM_PROMPT}, headers={"x-api-key": lyzr_api_key, "Content-Type": "application/json"})
+            res = client.post(url, json={"prompt": user_prompt, "system_prompt": EXPLANATION_SYSTEM_PROMPT}, headers={"x-api-key": api_key, "Content-Type": "application/json"})
             if res.status_code == 200:
                 raw_data = res.json()
                 if "response" in raw_data and isinstance(raw_data["response"], dict):
                     return raw_data["response"]
                 elif "response" in raw_data and isinstance(raw_data["response"], str):
                     return json.loads(raw_data["response"])
-    except Exception as e:
-        logger.warning(f"Lyzr Agent network endpoint unavailable ({e}); executing via governed engine.")
-
-    citations = []
-    for g in guideline_passages:
-        citations.append({"source_title": g.get("source_title", g.get("source", "USPSTF")), "clause_id": g.get("clause_id", "CLAUSE-01")})
-
-    explanation_text = f"Clinical care gaps identified for document {document_id}: " + "; ".join(care_gaps_found if care_gaps_found else ["No active care gaps found"]) + "."
-    return {"explanation_summary": explanation_text, "citations_used": citations}
+                elif isinstance(raw_data, dict):
+                    return raw_data
+                else:
+                    raise LLMInvalidResponseError("Lyzr Explanation Agent returned unexpected payload format.")
+            else:
+                raise LLMUnavailableError(f"Lyzr Explanation Agent returned HTTP {res.status_code}: {res.text}")
+    except httpx.HTTPError as e:
+        logger.error(f"Lyzr Explanation Agent request failed: {e}")
+        raise LLMUnavailableError(f"Lyzr Explanation Agent service unavailable: {e}") from e
+    except json.JSONDecodeError as e:
+        logger.error(f"Lyzr Explanation Agent returned invalid JSON: {e}")
+        raise LLMInvalidResponseError(f"LLM explanation JSON parse failure: {e}") from e

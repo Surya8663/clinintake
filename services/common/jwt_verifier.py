@@ -14,7 +14,7 @@ security_bearer = HTTPBearer(auto_error=False)
 
 from services.common.secrets_loader import get_secret
 
-KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://localhost:8085")
+KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "clinintake")
 JWT_SECRET_KEY = get_secret("JWT_SECRET_KEY", default="clinintake_default_dev_signing_key_2026")
 

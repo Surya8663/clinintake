@@ -33,7 +33,7 @@ async def dispatch_multi_channel_alerts(request: AlertDispatchRequest) -> AlertD
             dispatched_list.append(ChannelDispatchStatus(
                 channel="WEBHOOK",
                 status="SENT",
-                target_destination="http://localhost:8015/webhook/alert"
+                target_destination=os.getenv("WEBHOOK_ALERT_URL")
             ))
 
     latency_ms = round((time.time() - start_time) * 1000.0, 2)

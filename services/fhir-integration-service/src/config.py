@@ -6,18 +6,18 @@ class Settings(BaseSettings):
     service_name: str = "fhir-integration-service"
     service_port: int = 8006
     # Exclusive EHR credentials (sole component with write credentials)
-    ehr_client_id: str = Field(default="clinintake_fhir_writer_client")
+    ehr_client_id: str = Field(...)
     ehr_client_secret: str = Field(
-        default="test_fhir_client_secret_2026",
+        ...,
         description="OAuth2 client secret for EHR write access",
     )
     ehr_api_key: str = Field(
-        default="test_fhir_api_key_2026",
+        ...,
         description="API key for FHIR server write access",
     )
 
-    hapi_fhir_base_url: str = Field(default="http://localhost:8080/fhir")
-    redis_host: str = Field(default="localhost")
+    hapi_fhir_base_url: str = Field(...)
+    redis_host: str = Field(...)
     redis_port: int = Field(default=6379)
     log_level: str = "INFO"
 

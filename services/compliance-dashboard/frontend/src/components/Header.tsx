@@ -17,21 +17,21 @@ export const Header: React.FC<HeaderProps> = ({ serviceStatus }) => {
           <span className="text-slate-400">|</span>
           <nav className="flex items-center gap-1">
             <a
-              href="http://localhost:3000"
+              href={import.meta.env.VITE_WORKSPACE_URL}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <Stethoscope className="w-3.5 h-3.5 text-slate-500" />
               <span>Clinical Workspace</span>
             </a>
             <a
-              href="http://localhost:3001"
+              href={import.meta.env.VITE_COMPLIANCE_URL}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-medium shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <Shield className="w-3.5 h-3.5 text-blue-600" />
               <span>Compliance Vault</span>
             </a>
             <a
-              href="http://localhost:3002"
+              href={import.meta.env.VITE_METRICS_URL}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <BarChart3 className="w-3.5 h-3.5 text-slate-500" />

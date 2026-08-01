@@ -5,15 +5,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     service_name: str = "iam-service"
     service_port: int = 8018
-    keycloak_url: str = Field(default="http://localhost:8085")
-    keycloak_realm: str = Field(default="clinintake")
-    keycloak_client_id: str = Field(default="clinintake-bff")
+    keycloak_url: str = Field(...)
+    keycloak_realm: str = Field(...)
+    keycloak_client_id: str = Field(...)
     keycloak_client_secret: str = Field(
-        default="test_keycloak_secret_2026",
+        ...,
         description="Keycloak client secret for OIDC token verification"
     )
     jwt_secret_key: str = Field(
-        default="test_iam_jwt_secret_2026",
+        ...,
         description="HS256/RS256 signing key for JWT tokens",
     )
     jwt_algorithm: str = "HS256"

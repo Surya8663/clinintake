@@ -8,7 +8,7 @@ class FilterSettings(BaseSettings):
     log_level: str = Field(default="INFO")
     
     # ClamAV settings
-    clamav_host: str = Field(default="localhost")
+    clamav_host: str = Field(...)
     clamav_port: int = Field(default=3310)
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

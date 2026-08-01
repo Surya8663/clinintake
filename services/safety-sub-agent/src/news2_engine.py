@@ -28,7 +28,7 @@ def calculate_news2_points(vitals: VitalsMeasurement | None) -> tuple[int | None
         return None, None, "incomplete", "Safety assessment incomplete — required clinical measurements unavailable"
 
     score = 0
-    
+
     # 1. Respiration Rate
     rr = vitals.respiratory_rate
     if rr <= 8 or rr >= 25:

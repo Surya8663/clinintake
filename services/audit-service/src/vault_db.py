@@ -55,11 +55,11 @@ async def insert_audit_event(session: AsyncSession, event_id: str, document_id: 
     # Get last entry hash
     result = await session.execute(select(AuditVaultRecord).order_by(AuditVaultRecord.id.desc()).limit(1))
     last_record = result.scalars().first()
-    
+
     prev_hash = last_record.entry_hash if last_record else "0000000000000000000000000000000000000000000000000000000000000000"
     created_at = timestamp or datetime.datetime.utcnow().isoformat()
     payload_json = json.dumps(payload, sort_keys=True)
-    
+
     entry_hash = compute_entry_hash(prev_hash, event_id, document_id, service_name, event_type, payload_json, created_at)
     signature = compute_hmac_signature(entry_hash)
 
@@ -74,10 +74,10 @@ async def insert_audit_event(session: AsyncSession, event_id: str, document_id: 
         hmac_signature=signature,
         created_at=created_at
     )
-    
+
     session.add(record)
     await session.commit()
     await session.refresh(record)
-    
+
     logger.info(f"Appended signed audit event id={record.id} event_type={event_type} doc_id={document_id}")
     return record

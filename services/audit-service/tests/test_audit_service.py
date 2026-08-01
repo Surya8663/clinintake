@@ -64,7 +64,7 @@ def test_record_and_query_audit_event():
         "event_type": "DOCUMENT_INGESTED",
         "payload": {"file_name": "patient_chart.pdf", "file_size": 2048}
     }
-    
+
     response = client.post("/audit/events", json=event_payload, headers=headers)
     assert response.status_code == 200
     data = response.json()
@@ -107,7 +107,7 @@ async def test_audit_vault_update_and_delete_operations_rejected():
         with pytest.raises(AuditVaultImmutableError) as exc_info_update:
             session.add(rec)
             await session.commit()
-            
+
         assert "Audit Vault records are append-only. UPDATE operations are strictly forbidden" in str(exc_info_update.value)
 
         await session.rollback()

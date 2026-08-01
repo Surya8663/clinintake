@@ -1,4 +1,4 @@
-repos:
+﻿repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
@@ -24,11 +24,10 @@ repos:
       - id: mypy
         additional_dependencies: [pydantic]
 
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.4.0
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.1
     hooks:
-      - id: detect-secrets
-        args: ["--baseline", ".secrets.baseline"]
+      - id: gitleaks
 
   - repo: local
     hooks:
@@ -39,17 +38,26 @@ repos:
         pass_filenames: false
         always_run: true
 
-      - id: no-hardcoded-secrets
-        name: Verify no hardcoded secrets in source
-        entry: python scripts/quality/scan_secrets.py
+      - id: eslint-clinical-workspace
+        name: eslint (clinical-workspace)
+        entry: npm run lint
         language: system
         pass_filenames: false
         always_run: true
+        files: ^services/clinical-workspace/frontend/
 
-      - id: pytest
-        name: pytest
-        entry: pytest
+      - id: eslint-compliance-dashboard
+        name: eslint (compliance-dashboard)
+        entry: npm run lint
         language: system
         pass_filenames: false
         always_run: true
+        files: ^services/compliance-dashboard/frontend/
 
+      - id: eslint-metrics-dashboard
+        name: eslint (metrics-dashboard)
+        entry: npm run lint
+        language: system
+        pass_filenames: false
+        always_run: true
+        files: ^services/metrics-dashboard/frontend/

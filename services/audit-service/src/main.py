@@ -55,7 +55,7 @@ async def create_audit_event(
             payload=event.payload,
             timestamp=event.timestamp
         )
-        
+
         return AuditRecordResponse(
             id=record.id,
             event_id=record.event_id,
@@ -87,11 +87,11 @@ async def query_audit_trail(
             stmt = stmt.where(AuditVaultRecord.service_name == service_name)
         if event_type:
             stmt = stmt.where(AuditVaultRecord.event_type == event_type)
-            
+
         stmt = stmt.order_by(AuditVaultRecord.id.asc()).limit(limit)
         result = await session.execute(stmt)
         records = result.scalars().all()
-        
+
         output_list = [
             AuditRecordResponse(
                 id=r.id,
@@ -106,7 +106,7 @@ async def query_audit_trail(
                 created_at=r.created_at
             ) for r in records
         ]
-        
+
         return AuditQueryResponse(
             total_records=len(output_list),
             records=output_list

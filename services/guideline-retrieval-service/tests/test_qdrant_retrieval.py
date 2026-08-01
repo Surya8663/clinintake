@@ -54,7 +54,7 @@ def test_qdrant_upsert_and_hybrid_search():
             is_active=True
         )
     ]
-    
+
     count = qdrant_repo.upsert_chunks(test_chunks)
     assert count == 1
 

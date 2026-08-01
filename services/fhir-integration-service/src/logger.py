@@ -10,7 +10,7 @@ def setup_logging() -> logging.Logger:
     logger = logging.getLogger(settings.service_name)
     if logger.handlers:
         return logger
-        
+
     logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
     logHandler = logging.StreamHandler(sys.stdout)
     formatter = jsonlogger.JsonFormatter(

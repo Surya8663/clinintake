@@ -58,9 +58,9 @@ def validate_fhir_resource_schema(resource_type: str, fhir_resource: dict[str, A
             field_loc = " -> ".join([str(loc) for loc in err.get("loc", [])]) or "root"
             err_type = err.get("type", "invalid_value")
             msg = err.get("msg", "Invalid value for FHIR field")
-            
+
             issue_type = "missing_required" if "missing" in err_type else "invalid_type"
-            
+
             issues.append(ValidationIssue(
                 field=field_loc,
                 issue_type=issue_type,

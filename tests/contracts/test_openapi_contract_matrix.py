@@ -21,7 +21,7 @@ def load_app(service_name: str):
 
     service_dir = REPO_ROOT / "services" / service_name
     service_path = service_dir / "src" / "main.py"
-    
+
     sys.path.insert(0, str(service_dir))
     spec = importlib.util.spec_from_file_location(f"{service_name.replace('-', '_')}.main", service_path)
     module = importlib.util.module_from_spec(spec)
@@ -60,11 +60,11 @@ def test_service_openapi_schema_contains_route(service_name, route, method):
     openapi_resp = client.get("/openapi.json")
     assert openapi_resp.status_code == 200
     schema = openapi_resp.json()
-    
+
     paths = schema.get("paths", {})
     assert route in paths, f"Route {route} not found in OpenAPI schema for {service_name}"
     assert method in paths[route], f"Method {method.upper()} not found for route {route} in {service_name}"
-    
+
     endpoint_def = paths[route][method]
     assert "responses" in endpoint_def
     assert "200" in endpoint_def["responses"] or "201" in endpoint_def["responses"] or "202" in endpoint_def["responses"]

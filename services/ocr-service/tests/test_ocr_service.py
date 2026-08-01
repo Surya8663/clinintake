@@ -18,26 +18,26 @@ def test_ocr_image_upload_spatial_bbox():
     d = ImageDraw.Draw(img)
     d.text((10, 10), "Patient: Jane Doe", fill=(0, 0, 0))
     d.text((10, 50), "Diagnosis: Hypertension", fill=(0, 0, 0))
-    
+
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='PNG')
     img_byte_arr.seek(0)
-    
+
     response = client.post(
         "/ocr/process",
         files={"file": ("test_clinical_doc.png", img_byte_arr, "image/png")}
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "document_id" in data
     assert len(data["pages"]) == 1
-    
+
     page = data["pages"][0]
     assert page["width"] == 400
     assert page["height"] == 200
     assert len(page["words"]) > 0
-    
+
     # Verify real spatial bounding boxes exist
     first_word = page["words"][0]
     assert "bbox" in first_word

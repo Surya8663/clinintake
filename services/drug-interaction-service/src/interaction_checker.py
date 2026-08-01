@@ -24,11 +24,11 @@ async def check_rxnav_api_interactions(rxcuis: list[str]) -> list[DrugInteractio
     """Queries NLM RxNav Interaction API for drug-drug interactions using real RxCUI codes."""
     if len(rxcuis) < 2:
         return []
-        
+
     rx_str = "+".join(rxcuis)
     url = f"{settings.rxnav_interaction_api_url}/list.json?rxcuis={rx_str}"
     interactions: list[DrugInteraction] = []
-    
+
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
             resp = await client.get(url)
@@ -40,12 +40,12 @@ async def check_rxnav_api_interactions(rxcuis: list[str]) -> list[DrugInteractio
                         pair = interaction_type.get("minConcept", [])
                         item1 = pair[0].get("name", "Drug A") if len(pair) > 0 else "Drug A"
                         item2 = pair[1].get("name", "Drug B") if len(pair) > 1 else "Drug B"
-                        
+
                         for pair_detail in interaction_type.get("interactionPair", []):
                             description = pair_detail.get("description", "Drug-drug interaction reported.")
                             severity_raw = pair_detail.get("severity", "high").lower()
                             severity = "high" if "high" in severity_raw or "severe" in severity_raw else "moderate"
-                            
+
                             interactions.append(DrugInteraction(
                                 interaction_type="drug-drug",
                                 source_item=item1,
@@ -56,7 +56,7 @@ async def check_rxnav_api_interactions(rxcuis: list[str]) -> list[DrugInteractio
                             ))
     except Exception as e:
         logger.warning(f"NLM RxNav Interaction API request failed or timed out: {e}")
-        
+
     return interactions
 
 async def check_all_interactions(medications: list[DrugItem], allergies: list[AllergyItem]) -> InteractionCheckResponse:

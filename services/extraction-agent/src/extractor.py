@@ -9,11 +9,11 @@ def locate_bbox_for_quote(quote: str, ocr_words: list[dict[str, Any]] | None) ->
     """Finds exact spatial bounding box [x_min, y_min, x_max, y_max] matching the literal source quote."""
     if not ocr_words or not quote:
         return [0, 0, 100, 20]
-        
+
     quote_tokens = quote.lower().split()
     if not quote_tokens:
         return [0, 0, 100, 20]
-        
+
     for i in range(len(ocr_words) - len(quote_tokens) + 1):
         match = True
         for j, q_tok in enumerate(quote_tokens):
@@ -29,7 +29,7 @@ def locate_bbox_for_quote(quote: str, ocr_words: list[dict[str, Any]] | None) ->
             max_x = max([b.get("x_max", 0) for b in bboxes])
             max_y = max([b.get("y_max", 0) for b in bboxes])
             return [min_x, min_y, max_x, max_y]
-            
+
     # Default fallback bounding box if fuzzy text match
     return [40, 50, 250, 70]
 
@@ -42,14 +42,14 @@ def create_grounded_field(
 ) -> GroundedField:
     """Creates a grounded field. If confidence is below threshold, value MUST be 'Incomplete'."""
     threshold = custom_threshold if custom_threshold is not None else settings.confidence_threshold
-    
+
     bbox = locate_bbox_for_quote(literal_quote, ocr_words)
-    
+
     final_value = raw_value
     if confidence < threshold or not raw_value or raw_value.lower() == "unknown":
         logger.info(f"Field confidence {confidence} is below threshold {threshold}. Marking value as 'Incomplete'.")
         final_value = "Incomplete"
-        
+
     return GroundedField(
         value=final_value,
         literal_quote=literal_quote,
@@ -199,4 +199,3 @@ def perform_quote_grounded_extraction(
         medications=medications,
         labs=labs
     )
-

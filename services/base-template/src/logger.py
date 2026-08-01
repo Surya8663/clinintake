@@ -8,13 +8,13 @@ from src.config import settings
 
 def setup_logging() -> logging.Logger:
     logger = logging.getLogger(settings.service_name)
-    
+
     # Avoid adding multiple handlers if setup is called multiple times
     if logger.handlers:
         return logger
-        
+
     logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
-    
+
     logHandler = logging.StreamHandler(sys.stdout)
     formatter = jsonlogger.JsonFormatter(
         '%(asctime)s %(levelname)s %(name)s %(message)s',
@@ -25,7 +25,7 @@ def setup_logging() -> logging.Logger:
     )
     logHandler.setFormatter(formatter)
     logger.addHandler(logHandler)
-    
+
     return logger
 
 logger = setup_logging()

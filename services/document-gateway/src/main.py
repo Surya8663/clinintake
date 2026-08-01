@@ -24,9 +24,9 @@ async def upload_document(
         f"Multipart upload request from user '{auth_payload.get('sub')}'",
         extra={"uploaded_file_name": file.filename, "document_id": document_id}
     )
-    
+
     file_bytes = await file.read()
-    
+
     # Enforce Architecture: Must scan with security-filter BEFORE writing to storage
     async with httpx.AsyncClient() as client:
         files = {"file": (file.filename, file_bytes, file.content_type)}

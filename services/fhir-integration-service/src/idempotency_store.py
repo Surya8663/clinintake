@@ -13,7 +13,7 @@ def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str,
     Returns (is_duplicate: bool, previous_response: Optional[dict]).
     """
     key = f"fhir_idempotency:{idempotency_key}"
-    
+
     # Check local cache fallback first for unit testing
     if key in _LOCAL_IDEMPOTENCY_CACHE:
         logger.info(f"Idempotency cache hit! Key '{idempotency_key}' already processed. Suppressing duplicate write.")
@@ -28,7 +28,7 @@ def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str,
             data = json.loads(raw_str)
             logger.info(f"Redis Idempotency Hit for key='{idempotency_key}'. Returning cached no-op response.")
             return True, data
-        
+
         if response_data is not None:
             r.setex(key, 86400, json.dumps(response_data)) # 24h TTL
             _LOCAL_IDEMPOTENCY_CACHE[key] = response_data
@@ -37,5 +37,5 @@ def check_and_set_idempotency_key(idempotency_key: str, response_data: dict[str,
         logger.debug(f"Redis fallback to memory cache ({e})")
         if response_data is not None:
             _LOCAL_IDEMPOTENCY_CACHE[key] = response_data
-            
+
     return False, None

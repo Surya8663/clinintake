@@ -23,7 +23,7 @@ async def setup_test_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-        
+
     async with async_session() as session:
         # Seed testing demographic records
         session.add_all([
@@ -89,7 +89,7 @@ def test_low_confidence_quarantines_and_halts():
     res_data = response.json()
     assert res_data["status"] == "quarantined"
     assert res_data["confidence_score"] < settings.patient_match_threshold
-    
+
     # Assert that this document was added to the quarantine queue table
     quarantine_list_resp = client.get("/identity/quarantine")
     assert quarantine_list_resp.status_code == 200
@@ -111,7 +111,7 @@ def test_unmatched_demographics_quarantines_and_halts():
     )
     assert response.status_code == 200
     assert response.json()["status"] == "quarantined"
-    
+
     # Verify quarantine database contents
     quarantine_list_resp = client.get("/identity/quarantine")
     assert len(quarantine_list_resp.json()) == 1
@@ -129,11 +129,11 @@ def test_manual_resolution_clears_quarantine():
         }
     )
     assert response_resolve.json()["status"] == "quarantined"
-    
+
     # 2. Check pending queue contains it
     q_items_before = client.get("/identity/quarantine").json()
     assert len(q_items_before) == 1
-    
+
     # 3. Manually map it to Jane Smith (PAT-002)
     resolve_resp = client.post(
         "/identity/quarantine/doc-man-res/resolve",
@@ -141,7 +141,7 @@ def test_manual_resolution_clears_quarantine():
     )
     assert resolve_resp.status_code == 200
     assert resolve_resp.json()["status"] == "success"
-    
+
     # 4. Assert queue is now empty
     q_items_after = client.get("/identity/quarantine").json()
     assert len(q_items_after) == 0

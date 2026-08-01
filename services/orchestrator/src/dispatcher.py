@@ -36,10 +36,10 @@ class AuditEventBus:
             "document_id": document_id,
             "payload": payload,
         }
-        
+
         # Always output to structured json logging
         logger.info(f"Audit event: {event_type}", extra={"audit_event": event})
-        
+
         if self.enabled and self.producer:
             try:
                 # Asynchronously send log event
@@ -68,21 +68,21 @@ async def dispatch_downstream_call(service_name: str, url: str, payload: BaseMod
     It logs to the Audit Event Bus before making the call.
     """
     document_id = getattr(payload, "document_id", "unknown")
-    
+
     # Audit request before dispatching
     await audit_event_bus.publish_event(
         event_type=f"dispatch_request:{service_name}",
         document_id=document_id,
         payload=payload.model_dump()
     )
-    
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             logger.info(f"Dispatching call to {service_name} at {url}")
             response = await client.post(url, json=payload.model_dump())
             response.raise_for_status()
             resp_data = response.json()
-            
+
             # Audit successful response
             await audit_event_bus.publish_event(
                 event_type=f"dispatch_response_success:{service_name}",
@@ -90,7 +90,7 @@ async def dispatch_downstream_call(service_name: str, url: str, payload: BaseMod
                 payload=resp_data
             )
             return resp_data
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(
                 f"HTTP status error calling {service_name}",

@@ -30,7 +30,7 @@ def _generate_dense_vector(text: str, dim: int = 384) -> list[float]:
         for i in range(dim):
             val = (h[i % len(h)] - 128) / 128.0
             vector[i] += val
-    
+
     # Normalize vector to unit length
     magnitude = (sum(v * v for v in vector)) ** 0.5
     if magnitude > 0:
@@ -44,7 +44,7 @@ def _generate_sparse_indices(text: str) -> models.SparseVector:
     for word in words:
         idx = int(hashlib.md5(word.encode('utf-8')).hexdigest(), 16) % 10000
         term_counts[idx] = term_counts.get(idx, 0.0) + 1.0
-    
+
     indices = sorted(list(term_counts.keys()))
     values = [term_counts[i] for i in indices]
     return models.SparseVector(indices=indices, values=values)
@@ -124,7 +124,7 @@ class QdrantGuidelineRepository:
         """Idempotently upserts guideline chunks with dense & sparse vectors into Qdrant."""
         if not chunks:
             return 0
-        
+
         self.ensure_collection_exists()
         client = self.get_client()
 
@@ -133,10 +133,10 @@ class QdrantGuidelineRepository:
             # Deterministic point ID from chunk_checksum or chunk_id
             point_seed = chunk.chunk_checksum or chunk.chunk_id
             point_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, point_seed))
-            
+
             dense_vec = _generate_dense_vector(chunk.text)
             sparse_vec = _generate_sparse_indices(chunk.text)
-            
+
             points.append(
                 models.PointStruct(
                     id=point_uuid,
@@ -187,7 +187,7 @@ class QdrantGuidelineRepository:
         client = self.get_client()
 
         threshold = threshold_override if threshold_override is not None else settings.relevance_threshold
-        
+
         # Check if collection exists and has points
         try:
             col_info = client.get_collection(self.collection_name)
@@ -214,7 +214,7 @@ class QdrantGuidelineRepository:
                 match=models.MatchValue(value=True)
             )
         ]
-        
+
         if metadata_filter:
             for k, v in metadata_filter.items():
                 if v is not None:

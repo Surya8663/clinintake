@@ -9,7 +9,7 @@ class Base(DeclarativeBase):
 
 class Patient(Base):
     __tablename__ = "patients"
-    
+
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -19,7 +19,7 @@ class Patient(Base):
 
 class QuarantineRecord(Base):
     __tablename__ = "quarantine_queue"
-    
+
     document_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

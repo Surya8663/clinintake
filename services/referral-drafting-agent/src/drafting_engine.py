@@ -37,12 +37,12 @@ def _build_deterministic_letter(
 def generate_referral_draft_letter(request: ReferralDraftRequest) -> ReferralDraftResponse:
     """
     Generates a structured draft referral letter grounded in ClinicalDecisionPackage evidence.
-    
+
     Determining urgency, reasons, and evidence items remains strictly deterministic.
     The final natural-language clinical letter drafting is performed via LLM reasoning.
     """
     logger.info(f"Generating draft referral letter for document_id={request.document_id}")
-    
+
     pkg = request.clinical_decision_package
     patient_id = request.patient_id or pkg.get("patient_id", "PAT-UNKNOWN")
     specialty = request.target_specialty or "Gastroenterology"

@@ -85,7 +85,7 @@ def test_real_llm_referral_letter_drafting():
     assert response.patient_id == "PAT-CARD-881"
     assert response.target_specialty == "Cardiology"
     assert response.urgency_level == "ROUTINE"
-    
+
     letter = response.referral_letter_text
     assert len(letter) > 100, "Generated letter text is too short"
     assert "PAT-CARD-881" in letter, "Letter missing patient ID"

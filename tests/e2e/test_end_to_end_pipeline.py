@@ -34,7 +34,7 @@ def test_e2e_full_workflow_timeline():
     document_id = f"DOC-E2E-{uuid.uuid4().hex[:8]}"
     trace_id = f"tr_{uuid.uuid4().hex[:16]}"
     correlation_id = f"corr_{uuid.uuid4().hex[:16]}"
-    
+
     timeline = []
 
     # 1. State: RECEIVED
@@ -155,7 +155,7 @@ def test_retryable_dependency_interruption_recovery():
     wf = DocumentWorkflow(document_id="DOC-RETRY-1", state="security_scanning", version=1)
     wf = transition_workflow(wf, "fail_retryable")
     assert wf.state == ClinicalWorkflowState.FAILED_RETRYABLE.value
-    
+
     # Recover from FAILED_RETRYABLE back to security_scanning
     wf = transition_workflow(wf, "start_sanitize")
     assert wf.state == ClinicalWorkflowState.SECURITY_SCANNING.value

@@ -25,7 +25,7 @@ def test_drug_drug_interaction_detection():
     assert data["has_interactions"] is True
     assert data["has_high_severity"] is True
     assert len(data["interactions"]) >= 1
-    
+
     inter = data["interactions"][0]
     assert inter["interaction_type"] == "drug-drug"
     assert inter["severity"] == "high"
@@ -47,7 +47,7 @@ def test_drug_allergy_interaction_detection():
     assert data["has_interactions"] is True
     assert data["has_high_severity"] is True
     assert len(data["interactions"]) >= 1
-    
+
     inter = data["interactions"][0]
     assert inter["interaction_type"] == "drug-allergy"
     assert inter["severity"] == "high"

@@ -8,18 +8,18 @@ class OrchestratorSettings(BaseSettings):
     service_name: str = Field(default="workflow-orchestrator")
     environment: str = Field(default="development")
     log_level: str = Field(default="INFO")
-    
+
     # Redis configuration
     redis_host: str = Field(...)
     redis_port: int = Field(default=6379)
     redis_db: int = Field(default=0)
-    
+
     # Kafka/Redpanda configuration
     kafka_bootstrap_servers: str = Field(...)
     audit_topic: str = Field(default="audit-events")
 
     # Lyzr SuperFlow & Agent Governance Configuration
-    lyzr_api_key: str = Field(default_factory=lambda: os.getenv("LYZR_API_KEY", "lyzr_dev_master_key_2026"))
+    lyzr_api_key: str = Field(...)
     lyzr_base_url: str = Field(...)
     lyzr_superflow_id: str = Field(...)
     lyzr_extraction_agent_id: str = Field(...)
@@ -28,7 +28,7 @@ class OrchestratorSettings(BaseSettings):
     lyzr_policy_prompt_injection_id: str = Field(...)
     lyzr_policy_grounding_id: str = Field(...)
     lyzr_webhook_secret: str = Field(...)
-    
+
     # Real Downstream Microservice URLs
     document_gateway_url: str = Field(...)
     document_security_filter_url: str = Field(...)
@@ -53,7 +53,7 @@ class OrchestratorSettings(BaseSettings):
     metrics_dashboard_url: str = Field(...)
     guardrail_service_url: str = Field(...)
     audit_service_url: str = Field(...)
-    
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = OrchestratorSettings()

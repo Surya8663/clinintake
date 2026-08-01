@@ -82,20 +82,20 @@ async def create_document(
     existing = await persistence.get_workflow(req.document_id)
     if existing:
         raise HTTPException(status_code=400, detail="Document already exists")
-    
+
     workflow = DocumentWorkflow(
         document_id=req.document_id,
         state="received",
         context={"file_path": req.file_path}
     )
     await persistence.save_workflow(workflow)
-    
+
     await audit_event_bus.publish_event(
         event_type="document_received",
         document_id=req.document_id,
         payload={"file_path": req.file_path}
     )
-    
+
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
 @app.get("/orchestrator/documents/{document_id}")
@@ -117,14 +117,14 @@ async def transition_document(
     workflow = await persistence.get_workflow(document_id)
     if not workflow:
         raise HTTPException(status_code=404, detail="Document workflow not found")
-    
+
     if req.context:
         workflow.context.update(req.context)
-        
+
     try:
         workflow = transition_workflow(workflow, req.trigger)
         await persistence.save_workflow(workflow)
-        
+
         await audit_event_bus.publish_event(
             event_type=f"workflow_transition:{req.trigger}",
             document_id=document_id,
@@ -132,7 +132,7 @@ async def transition_document(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-        
+
     return {"document_id": workflow.document_id, "state": workflow.state, "context": workflow.context}
 
 from src.lyzr_client import LyzrApiError, LyzrGovernanceViolationError, lyzr_client
@@ -147,12 +147,12 @@ async def lyzr_webhook_callback(request: Request):
     if not lyzr_client.verify_webhook_signature(raw_body, sig):
         logger.warning("[LYZR WEBHOOK] Invalid callback signature")
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
-    
+
     # Replay Protection Check
     if sig in PROCESSED_CALLBACK_SIGNATURES:
         logger.info("[LYZR WEBHOOK REPLAY] Duplicate callback signature detected. Skipping side effects.")
         return {"status": "accepted", "replay": True}
-    
+
     PROCESSED_CALLBACK_SIGNATURES.add(sig)
 
     data = await request.json()
@@ -201,7 +201,7 @@ async def execute_step(
         return JSONResponse(status_code=503 if isinstance(e, LyzrApiError) else 400, content=err_envelope.model_dump())
 
     current_state = workflow.state
-    
+
     # 1. State: received -> Transition to sanitizing & dispatch to /filter/scan
     if current_state == "received":
         scan_req = FilterScanRequest(
@@ -211,7 +211,7 @@ async def execute_step(
         try:
             workflow = transition_workflow(workflow, "start_sanitize")
             await persistence.save_workflow(workflow)
-            
+
             resp = await dispatch_downstream_call(
                 service_name="document-security-filter",
                 url=f"{settings.document_security_filter_url}/filter/scan",
@@ -247,7 +247,7 @@ async def execute_step(
                 "labs": extract_resp.labs
             }
             workflow.context["confidence_score"] = extract_resp.confidence_score
-            
+
             workflow = transition_workflow(workflow, "extraction_success")
         except Exception as e:
             workflow = transition_workflow(workflow, "extraction_fail")
@@ -258,7 +258,7 @@ async def execute_step(
     elif current_state == "validating":
         if "extracted_data" not in workflow.context:
             raise HTTPException(status_code=400, detail="Missing extracted clinical data context")
-            
+
         validate_req = SchemaValidateRequest(
             document_id=document_id,
             clinical_data=workflow.context["extracted_data"]
@@ -271,7 +271,7 @@ async def execute_step(
             )
             validate_resp = SchemaValidateResponse(**resp)
             workflow.context["validation_issues"] = validate_resp.issues
-            
+
             if validate_resp.is_valid:
                 workflow = transition_workflow(workflow, "validation_success")
             elif validate_resp.requires_manual_review:
@@ -286,14 +286,14 @@ async def execute_step(
     elif current_state == "reasoning":
         try:
             patient_id = workflow.context.get("patient_id", "")
-            
+
             # Step 4a: Rules Engine /cql/evaluate
             cql_resp = await dispatch_downstream_call(
                 service_name="clinical-rules-engine",
                 url=f"{settings.clinical_rules_engine_url}/cql/evaluate",
                 payload=CqlEvaluateRequest(document_id=document_id, patient_id=patient_id, cql_library="uspstf_colorectal_cancer_2021")
             )
-            
+
             # Step 4b: Temporal Engine /temporal/evaluate
             temporal_resp = await dispatch_downstream_call(
                 service_name="temporal-reasoning-engine",
@@ -322,7 +322,7 @@ async def execute_step(
             )
             explain_data = CareGapExplainResponse(**explain_resp)
             workflow.context["care_gaps"] = explain_data.explained_care_gaps
-            
+
             workflow = transition_workflow(workflow, "reasoning_needs_review")
         except Exception as e:
             workflow = transition_workflow(workflow, "reasoning_fail")

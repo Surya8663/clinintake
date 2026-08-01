@@ -11,7 +11,7 @@ class EncryptedClinicalDocStore:
         self.key = key or settings.encryption_key
         self.storage_dir = storage_dir or settings.storage_dir
         self.fernet = Fernet(self.key.encode("utf-8"))
-        
+
         # Enforce folder layout
         os.makedirs(self.storage_dir, exist_ok=True)
 
@@ -22,10 +22,10 @@ class EncryptedClinicalDocStore:
         encrypted_data = self.fernet.encrypt(data)
         file_name = f"{document_id}.enc"
         file_path = os.path.join(self.storage_dir, file_name)
-        
+
         with open(file_path, "wb") as f:
             f.write(encrypted_data)
-            
+
         logger.info(
             "Document encrypted and saved to Clinical Document Store.",
             extra={"document_id": document_id, "file_path": file_path}
@@ -38,14 +38,14 @@ class EncryptedClinicalDocStore:
         """
         file_name = f"{document_id}.enc"
         file_path = os.path.join(self.storage_dir, file_name)
-        
+
         if not os.path.exists(file_path):
             logger.error(f"Document file not found: {file_path}")
             raise FileNotFoundError(f"Document {document_id} not found in store.")
-            
+
         with open(file_path, "rb") as f:
             encrypted_data = f.read()
-            
+
         try:
             return self.fernet.decrypt(encrypted_data)
         except Exception as e:

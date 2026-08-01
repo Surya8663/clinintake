@@ -35,7 +35,7 @@ class WorkflowMachine:
     STATES = [s.value for s in ClinicalWorkflowState] + [
         "sanitizing", "extracting", "validating", "reasoning", "awaiting_approval", "writing_ehr", "complete", "escalated"
     ]
-    
+
     TRANSITIONS = [
         {"trigger": "start_sanitize", "source": ["received", "failed_retryable"], "dest": "sanitizing"},
         {"trigger": "quarantine", "source": ["received", "security_scanning", "validating", "guardrail_review"], "dest": "quarantined"},
@@ -108,7 +108,7 @@ def transition_workflow(
             "version": model.version
         }
     )
-    
+
     try:
         trigger_func = getattr(model, trigger)
         trigger_func(*args, **kwargs)
@@ -124,7 +124,7 @@ def transition_workflow(
             }
         )
         raise e
-        
+
     logger.info(
         f"Transition successful: {trigger} -> {model.state} (v{model.version})",
         extra={

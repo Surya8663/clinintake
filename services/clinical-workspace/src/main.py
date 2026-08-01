@@ -82,7 +82,7 @@ async def stream_document_content(
         pdf_bytes = b"%PDF-1.4\n1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n2 0 obj <</Type /Pages /Kids [] /Count 0>> endobj\nxref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\ntrailer <</Size 3 /Root 1 0 R>>\nstartxref\n100\n%%EOF\n"
 
     total_bytes = len(pdf_bytes)
-    
+
     # Range Request Handling (HTTP 206 Partial Content)
     if range:
         range_val = range.replace("bytes=", "").strip()
@@ -91,7 +91,7 @@ async def stream_document_content(
         end = int(parts[1]) if len(parts) > 1 and parts[1] else total_bytes - 1
         end = min(end, total_bytes - 1)
         chunk = pdf_bytes[start:end+1]
-        
+
         headers = {
             "Content-Range": f"bytes {start}-{end}/{total_bytes}",
             "Accept-Ranges": "bytes",
@@ -100,7 +100,7 @@ async def stream_document_content(
             "Content-Disposition": f'inline; filename="{document_id}.pdf"'
         }
         return Response(content=chunk, status_code=206, headers=headers)
-        
+
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Length": str(total_bytes),

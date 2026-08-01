@@ -21,7 +21,7 @@ def _load_service_app(service_name: str):
 
     if service_dir not in sys.path:
         sys.path.insert(0, service_dir)
-    
+
     main_mod = importlib.import_module("src.main")
     if service_dir in sys.path:
         sys.path.remove(service_dir)

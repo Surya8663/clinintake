@@ -4,7 +4,7 @@ import { AlertTriangle, WifiOff } from 'lucide-react';
 interface ErrorBannerProps {
   /** The error message to display */
   message: string;
-  /** 
+  /**
    * Distinguishes between "service unreachable" (connection) vs. other errors (generic).
    * A compliance reviewer must see a visually distinct state for "audit-service unreachable"
    * vs. a genuinely empty audit log.

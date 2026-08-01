@@ -90,6 +90,6 @@ def call_llm_referral_draft(
     )
     for ev in evidence_items:
         letter += f"- {ev.get('source', 'USPSTF')} ({ev.get('section', 'Guideline')}): \"{ev.get('passage', '')}\"\n"
-    
+
     letter += "\nSincerely,\nAttending Clinician MD"
     return letter

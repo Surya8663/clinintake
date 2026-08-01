@@ -64,7 +64,7 @@ def test_get_review_queue_and_findings():
 def test_edit_referral_text_and_submit_signed_approval():
     headers = get_auth_header()
     doc_id = "DOC-99482-A"
-    
+
     # 1. Save referral text edits
     edit_resp = client.put(
         f"/workspace/referral/{doc_id}",

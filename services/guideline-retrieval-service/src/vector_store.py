@@ -6,7 +6,7 @@ from src.qdrant_repository import qdrant_repo
 
 class GuidelineVectorStore:
     """Qdrant-backed hybrid RAG vector store facade."""
-    
+
     def search_guidelines(
         self,
         query: str,

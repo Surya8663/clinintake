@@ -26,16 +26,16 @@ def test_multi_channel_alert_dispatch_latency_sla():
     response = client.post("/notify/alert", json=payload)
     assert response.status_code == 200
     data = response.json()
-    
+
     assert data["document_id"] == "DOC-ALERT-SLA-001"
     assert data["severity"] == "EMERGENCY"
     assert len(data["dispatched_channels"]) == 3
-    
+
     channels_sent = [c["channel"] for c in data["dispatched_channels"]]
     assert "SMS" in channels_sent
     assert "EMAIL" in channels_sent
     assert "WEBHOOK" in channels_sent
-    
+
     # SLA LATENCY CHECK: Must be under 2000 ms (< 2.0s)
     latency = data["dispatch_latency_ms"]
     assert latency < 2000.0

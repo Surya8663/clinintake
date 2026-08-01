@@ -21,9 +21,9 @@ injection_detector = PromptInjectionDetector()
 @app.post("/filter/scan")
 async def scan_document(file: UploadFile = File(...)):
     logger.info(f"Initiating security scan for document: {file.filename}")
-    
+
     file_bytes = await file.read()
-    
+
     # 1. MIME Validation
     kind = filetype.guess(file_bytes)
     if not kind or kind.mime != "application/pdf":
@@ -36,7 +36,7 @@ async def scan_document(file: UploadFile = File(...)):
             "is_safe": False,
             "reason": f"MIME check failed. Expected application/pdf, but resolved as {mime_found}."
         }
-        
+
     # 2. Malware Scan (ClamAV)
     is_malware_safe, malware_reason = clamav_scanner.scan_bytes(file_bytes)
     if not is_malware_safe:
@@ -48,7 +48,7 @@ async def scan_document(file: UploadFile = File(...)):
             "is_safe": False,
             "reason": malware_reason
         }
-        
+
     # 3. Prompt Injection (extract text and evaluate)
     try:
         pdf_file = io.BytesIO(file_bytes)
@@ -58,7 +58,7 @@ async def scan_document(file: UploadFile = File(...)):
             text = page.extract_text()
             if text:
                 full_text += text + "\n"
-        
+
         is_injection_safe, injection_reason = injection_detector.scan_text(full_text)
         if not is_injection_safe:
             logger.warning(
@@ -69,7 +69,7 @@ async def scan_document(file: UploadFile = File(...)):
                 "is_safe": False,
                 "reason": injection_reason
             }
-            
+
     except Exception as e:
         logger.error(
             f"Error processing PDF structure for prompt injection check on {file.filename}",

@@ -24,12 +24,12 @@ async def validate_schema(request: ValidateSchemaRequest):
     """Validates FHIR R4 JSON object and returns field-level error messages if invalid."""
     logger.info(f"Validating FHIR schema for resourceType={request.resource_type}")
     response = validate_fhir_resource_schema(request.resource_type, request.fhir_resource)
-    
+
     if not response.is_valid:
         logger.warning(f"Rejecting malformed FHIR resource '{request.resource_type}' with {len(response.issues)} errors.")
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=response.model_dump(mode="json")
         )
-        
+
     return response

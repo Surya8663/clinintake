@@ -25,10 +25,10 @@ async def process_document(file: UploadFile = File(...)):
     logger.info(f"Processing document upload: {file.filename}, content_type={file.content_type}")
     doc_id = str(uuid.uuid4())
     content = await file.read()
-    
+
     pages = []
     engine_used = "tesseract_spatial"
-    
+
     filename_lower = (file.filename or "").lower()
     if filename_lower.endswith(".pdf") or file.content_type == "application/pdf":
         logger.info("PDF document detected, parsing PDF spatial bounding boxes")
@@ -44,7 +44,7 @@ async def process_document(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail=f"Invalid image file: {e!s}")
 
     full_text = "\n\n".join([p.text for p in pages])
-    
+
     return OCRResponse(
         document_id=doc_id,
         pages=pages,

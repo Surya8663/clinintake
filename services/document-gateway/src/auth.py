@@ -11,7 +11,7 @@ def verify_jwt_token(authorization: str = Header(...)) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication. Bearer token expected."
         )
-    
+
     token = authorization.split(" ")[1]
     try:
         claims = decode_and_verify_jwt(token)

@@ -41,7 +41,7 @@ def test_explanation_generation_from_package():
     assert data["document_id"] == "DOC-PKG-001"
     assert "USPSTF Colorectal Cancer Screening is currently OVERDUE" in data["explanation_summary"]
     assert len(data["cited_guideline_passages"]) == 1
-    
+
     citation = data["cited_guideline_passages"][0]
     assert citation["clause_id"] == "USPSTF-CRC-2021-01"
     assert citation["section"] == "Recommendation Statement"
@@ -55,7 +55,7 @@ def test_citations_strictly_match_input_package_passages_not_fabricated():
     """
     unique_clause_id = "USPSTF-DIABETES-2021-CLAUSE-99"
     unique_passage_text = "Screening for prediabetes and type 2 diabetes should occur in asymptomatic adults aged 35 to 70 years who have overweight or obesity."
-    
+
     package_data = {
         "document_id": "DOC-STRICT-CITATION-02",
         "guideline_passages": [
@@ -73,14 +73,14 @@ def test_citations_strictly_match_input_package_passages_not_fabricated():
     response = client.post("/care-gap/explain", json=package_data)
     assert response.status_code == 200
     data = response.json()
-    
+
     cited_passages = data["cited_guideline_passages"]
     assert len(cited_passages) == 1
-    
+
     # Verify exact match against input package
     assert cited_passages[0]["clause_id"] == unique_clause_id
     assert cited_passages[0]["passage_text"] == unique_passage_text
-    
+
     # Confirm no extra or fabricated citations were generated
     for citation in cited_passages:
         assert citation["clause_id"] in [p["clause_id"] for p in package_data["guideline_passages"]]

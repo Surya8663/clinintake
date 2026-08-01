@@ -38,7 +38,7 @@ def decode_and_verify_jwt(token: str) -> dict[str, Any]:
             raise HTTPException(status_code=401, detail="Malformed authentication token")
 
         header_b64, payload_b64, sig_b64 = parts
-        
+
         # Decode header & payload
         header = json.loads(_b64_decode(header_b64).decode('utf-8'))
         payload = json.loads(_b64_decode(payload_b64).decode('utf-8'))

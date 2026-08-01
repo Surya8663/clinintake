@@ -15,7 +15,7 @@ def test_emergency_safety_interrupt_lane_latency_sla():
         "Diagnosis: Severe Respiratory Distress (ICD-10: J80)\n"
         "Clinical note: Patient experiencing acute chest pain, cyanosis, and severe respiratory arrest."
     )
-    
+
     response = client.post(
         "/extract",
         json={
@@ -25,9 +25,9 @@ def test_emergency_safety_interrupt_lane_latency_sla():
     )
     assert response.status_code == 200
     data = response.json()
-    
+
     assert "safety_interrupt_latency_ms" in data
     latency = data["safety_interrupt_latency_ms"]
-    
+
     # Must meet < 2.0 seconds (2000 ms) SLA requirement
     assert latency < 2000.0

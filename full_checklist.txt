@@ -1,0 +1,669 @@
+﻿<USER_REQUEST>
+You are performing a final verification and remediation pass on the fully completed ClinIntake implementation.
+
+All planned implementation phases have already been completed. Do not reset to the original baseline, do not rebuild the project from scratch, and do not remove valid Lyzr, Qdrant, workflow, UI, audit, persistence, security or deployment work.
+
+Your job is to inspect the actual current repository, correct remaining quality and security defects, and produce truthful raw evidence from the final code.
+
+# 1. Preserve the completed implementation
+
+First record the current state:
+
+```bash
+git status --short
+git branch --show-current
+git rev-parse HEAD
+git log -1 --oneline
+```
+
+Create a backup branch from the current completed HEAD:
+
+```bash
+git branch backup/completed-implementation-before-final-audit
+```
+
+Create and switch to:
+
+```bash
+git checkout -b remediation/final-verification-v1
+```
+
+Do not reset to an old commit.
+
+Do not push incomplete work directly to `main` or `master`.
+
+# 2. Inspect before modifying
+
+Run the existing quality gates and record the complete output before making changes:
+
+```bash
+python scripts/quality/run_all_gates.py
+python scripts/quality/scan_secrets.py
+python scripts/quality/scan_forbidden_terms.py
+make security-scan
+make contract-check
+make test-unit
+```
+
+Also inspect:
+
+```bash
+git ls-files .env.example
+git check-ignore -v .env.example || true
+find . -name "Dockerfile" -o -name "Dockerfile.*"
+grep -RInE "\|\|[[:space:]]*true|except Exception:[[:space:]]*pass" Makefile scripts services --exclude-dir=node_modules --exclude-dir=.git
+```
+
+Do not claim any result before running it against the current final repository.
+
+# 3. Commit `.env.example` correctly
+
+Check whether `.env.example` exists and is tracked.
+
+If `.gitignore` currently excludes it through `.env.*`, correct the rules to preserve the template:
+
+```gitignore
+.env
+*.env
+.env.*
+!.env.example
+```
+
+Create or update `.env.example`.
+
+It must list all required environment variables used by the final implementation, including:
+
+* Lyzr credentials and agent/workflow identifiers
+* Qdrant URL, API key and collection configuration
+* LLM provider credentials
+* JWT signing configuration
+* Audit HMAC signing key
+* Document encryption key
+* Database URLs and passwords
+* Kafka or Redpanda configuration
+* Redis configuration
+* HAPI FHIR configuration
+* ClamAV configuration
+* Internal service URLs
+* Frontend and BFF configuration
+* Observability configuration
+
+All secrets must have blank values.
+
+Do not include working API keys, passwords, JWT secrets, Fernet keys, HMAC keys, tokens or private credentials.
+
+Verify:
+
+```bash
+git check-ignore -v .env.example || true
+git ls-files .env.example
+```
+
+`git ls-files .env.example` must return `.env.example`.
+
+# 4. Remove all runtime secret defaults
+
+Inspect every runtime configuration file.
+
+Secrets must be required environment variables and must not have usable default values.
+
+At minimum inspect:
+
+* `services/fhir-integration-service/src/config.py`
+* `services/document-gateway/src/config.py`
+* `services/iam-service/src/config.py`
+* `services/audit-service/**`
+* `services/orchestrator/**`
+* Lyzr integration configuration
+* Qdrant integration configuration
+* database configuration
+* Kafka configuration
+* frontend BFF configuration
+* Docker Compose environment declarations
+
+Use required configuration fields such as:
+
+```python
+jwt_secret_key: str = Field(...)
+```
+
+Do not use:
+
+```python
+jwt_secret_key: str = Field(default="test-secret")
+```
+
+Do not generate a fallback runtime secret automatically when the environment variable is missing.
+
+The service must fail closed at startup with a clear configuration error.
+
+Tests may provide test-only values through fixtures, monkeypatching or test environment configuration. Test credentials must never be stored in runtime source files.
+
+# 5. Remove fabricated runtime data without damaging legitimate validation text
+
+Search runtime code for fabricated records and success states:
+
+```bash
+grep -RInE "DOC-DEMO|PAT-DEMO|PAT-AUTO|EVT-MOCK|mock record|dummy record|fake success|fallback entry|sample patient|canned referral" services shared tools \
+  --exclude-dir=node_modules \
+  --exclude-dir=tests \
+  --exclude="*test*"
+```
+
+Remove fabricated runtime:
+
+* patient records;
+* document records;
+* audit records;
+* guideline results;
+* KPI results;
+* clinician identities;
+* digital signatures;
+* EHR persistence confirmations;
+* successful workflow responses.
+
+Do not blindly ban words such as `fake`, `mock`, or `dummy` when they are part of legitimate guardrail instructions, comments or validation messages.
+
+The scanner must distinguish fabricated executable runtime data from explanatory text.
+
+A service failure must return a real error state. It must never silently substitute believable-looking records.
+
+# 6. Fix Makefile truthfulness
+
+Inspect every Makefile target.
+
+Remove any use of:
+
+```bash
+|| true
+```
+
+that suppresses a failed test, build, scan, migration or verification command.
+
+Required behaviour:
+
+* `make test-unit` returns non-zero when any test fails.
+* `make contract-check` returns non-zero when any contract check fails.
+* `make security-scan` returns non-zero when secrets are detected.
+* `make verify-no-runtime-fakes` returns non-zero when fabricated runtime data exists.
+* Frontend build targets return non-zero when a build fails.
+* Integration and E2E targets return non-zero when their workflow fails.
+
+Do not print `PASS` unless the command genuinely exited successfully.
+
+# 7. Use Gitleaks correctly
+
+Use Gitleaks as the authoritative secret scanner.
+
+Required integration:
+
+* local `make security-scan` target;
+* CI job;
+* pre-commit hook.
+
+Do not reference an absent `.secrets.baseline`.
+
+Do not add broad allowlists that permit secrets in runtime source files.
+
+Any allowed test fixture must be narrowly scoped by exact path and justification.
+
+Run:
+
+```bash
+gitleaks detect --source . --no-git --redact --verbose
+```
+
+The command must exit successfully with zero unapproved findings.
+
+# 8. Complete pre-commit checks
+
+The pre-commit configuration must contain working hooks for:
+
+* Python linting;
+* Python formatting;
+* TypeScript linting for all three frontend applications;
+* YAML validation;
+* JSON validation;
+* Gitleaks;
+* fabricated-runtime-data scanning;
+* trailing whitespace and end-of-file checks.
+
+Every referenced command and configuration file must exist.
+
+Do not run the complete Docker or end-to-end suite on every commit.
+
+Run:
+
+```bash
+pre-commit run --all-files
+```
+
+Report the complete output.
+
+# 9. Verify real Lyzr integration
+
+Inspect the final Lyzr implementation and prove it is used at runtime.
+
+Verify:
+
+* the project creates or references real Lyzr agents/workflows;
+* the orchestrator invokes Lyzr during the clinical workflow;
+* Lyzr is not merely installed or mentioned;
+* hallucination and PII guardrails are executed;
+* human approval is represented as a real workflow gate;
+* Lyzr execution or trace identifiers are persisted;
+* failures are surfaced honestly;
+* no parallel second orchestrator independently performs the same authoritative clinical workflow.
+
+Provide:
+
+* exact runtime files containing Lyzr client imports;
+* exact workflow invocation code;
+* exact guardrail invocation code;
+* exact HITL gate code;
+* tests mocking only the external Lyzr API boundary;
+* one integration test proving the application calls the Lyzr boundary.
+
+Do not use fabricated successful Lyzr responses in runtime code.
+
+# 10. Verify real Qdrant integration
+
+Inspect the final guideline retrieval system and prove Qdrant is genuinely used.
+
+Verify:
+
+* real `QdrantClient` or supported async client usage;
+* collection creation or validated existing collection;
+* dense embeddings;
+* sparse embeddings when hybrid retrieval is claimed;
+* actual point upsert;
+* actual Qdrant query execution;
+* payload metadata filters;
+* guideline source, version, jurisdiction, section and effective-date metadata;
+* retrieval citations returned to downstream agents;
+* empty retrieval returns `Insufficient guideline evidence`;
+* no in-memory word-overlap fallback presented as real retrieval.
+
+Provide raw evidence from a real local Qdrant instance:
+
+```bash
+curl -s http://localhost:6333/collections
+```
+
+Also run a real ingestion and retrieval command against a non-test guideline document.
+
+Show:
+
+* collection information;
+* inserted point count;
+* retrieval request;
+* retrieval response;
+* citation metadata.
+
+# 11. Verify service contracts and routes
+
+Add or run a repository scanner that detects:
+
+* configured service URLs pointing to nonexistent FastAPI routes;
+* references to nonexistent settings fields;
+* duplicate service ports;
+* malformed internal URLs;
+* hardcoded localhost URLs in production configuration;
+* response-field mismatches between callers and callees;
+* undocumented direct service-to-service calls violating orchestration rules.
+
+Correct every confirmed contract mismatch.
+
+Do not silence findings through scanner allowlists.
+
+Generate:
+
+```text
+docs/service-contract-report.md
+```
+
+It must list:
+
+* caller;
+* target service;
+* HTTP method;
+* configured URL;
+* actual target route;
+* request schema;
+* response schema;
+* authentication requirement;
+* timeout;
+* retry policy;
+* failure behaviour.
+
+# 12. Verify signed clinician approval
+
+Prove that clinician approval is real and cannot be bypassed.
+
+Required path:
+
+```text
+Authenticated clinician
+â†’ Clinical Workspace
+â†’ signed approval request
+â†’ verified clinician identity and role
+â†’ cryptographic signature verification
+â†’ authoritative workflow/Lyzr approval gate
+â†’ orchestrator authorization
+â†’ FHIR Integration Service
+â†’ EHR write
+â†’ audit confirmation
+```
+
+Verify:
+
+* clinician identity comes from a verified token, not a frontend constant;
+* scopes are derived from verified claims;
+* the BFF cannot invent privileged scopes;
+* the approval is persisted;
+* the signature is unique and verifiable;
+* rejected or expired approval blocks the write;
+* missing approval blocks the write;
+* direct calls to the FHIR endpoint without orchestrator authorization are rejected;
+* a network failure never displays approval success;
+* the backend never returns `signed_event_emitted=true` without actually emitting and persisting the event.
+
+Add tests for all negative cases.
+
+# 13. Verify fail-closed EHR integration
+
+The FHIR Integration Service must never return `persisted` when HAPI FHIR is unavailable or returns an error.
+
+Required behaviour:
+
+* 2xx response with validated transaction result â†’ persisted;
+* timeout â†’ failed or indeterminate, never persisted;
+* 4xx â†’ failed with sanitized details;
+* 5xx â†’ retryable failure;
+* malformed response â†’ failed;
+* duplicate idempotency key â†’ return the previously confirmed result only;
+* missing signed workflow authorization â†’ HTTP 403;
+* expired authorization â†’ HTTP 403;
+* replayed authorization â†’ rejected.
+
+References must come from the actual HAPI FHIR response.
+
+Do not generate synthetic resource references after failure.
+
+Run a real HAPI FHIR integration test and show the raw request and response.
+
+# 14. Verify complete audit flow
+
+Every critical workflow action must generate a real audit event.
+
+At minimum:
+
+* document received;
+* security scan result;
+* patient match or quarantine;
+* OCR completed;
+* extraction completed;
+* terminology normalization;
+* FHIR validation;
+* deterministic rule result;
+* drug interaction result;
+* temporal reasoning result;
+* guideline retrieval;
+* Lyzr invocation;
+* guardrail result;
+* red-flag escalation;
+* referral draft;
+* clinician edit;
+* clinician approval or rejection;
+* FHIR write attempt;
+* FHIR write result;
+* failure queue action.
+
+Verify:
+
+* services publish through the Audit Event Bus;
+* Audit Service consumes the event stream;
+* only Audit Service writes to the vault;
+* query paths are read-only;
+* hash-chain verification succeeds;
+* unauthorized audit access fails;
+* Lyzr trace IDs and workflow IDs are correlated;
+* no service silently logs only to stdout while claiming full auditability.
+
+Run one complete workflow and show the correlated audit records for a single document ID.
+
+# 15. Verify UI against real backend data
+
+Do not redesign blindly. First verify that all user interfaces consume real backend data.
+
+Clinical Workspace must include:
+
+* real authenticated clinician session;
+* review queue from persistent backend storage;
+* actual PDF rendering using PDF.js or equivalent;
+* spatial evidence overlays using real OCR bounding boxes;
+* linked guideline citations;
+* care-gap findings;
+* referral edit, approve and reject flows;
+* visible workflow state;
+* visible error states;
+* no hardcoded document or clinician IDs.
+
+Compliance Dashboard must include:
+
+* real audit records;
+* filters;
+* pagination;
+* integrity verification;
+* workflow and Lyzr trace correlation;
+* access-denied state;
+* service-unreachable state;
+* no fabricated audit fallback.
+
+Metrics Dashboard must include:
+
+* KPIs calculated from actual persisted evaluation or workflow data;
+* no fixed perfect scores;
+* time-window filters;
+* denominator and sample-size visibility;
+* care-gap precision and recall;
+* red-flag sensitivity;
+* false-alert rate;
+* citation correctness;
+* patient-document matching accuracy;
+* referral acceptance rate;
+* human override rate;
+* workflow latency.
+
+UI requirements:
+
+* white and light-blue clinical design;
+* no dark theme;
+* no heavy glassmorphism;
+* WCAG-aware contrast;
+* keyboard navigation;
+* responsive layouts;
+* loading, empty, error and access-denied states;
+* consistent shared design tokens.
+
+Run production builds for all three:
+
+```bash
+npm ci
+npm run lint
+npm run build
+```
+
+Paste the raw output for each application.
+
+# 16. Verify persistence and recovery
+
+Remove critical in-memory runtime stores.
+
+Verify durable storage for:
+
+* workflow state;
+* patient matching and quarantine;
+* review queue;
+* referral drafts;
+* clinician decisions;
+* approval signatures;
+* idempotency records;
+* audit records;
+* failure and retry state;
+* evaluation metrics.
+
+Restart relevant services during an integration test and prove state survives.
+
+Do not claim persistence based only on database models; execute real save, restart and reload tests.
+
+# 17. Verify deployment
+
+Every Docker Compose application build context must contain a valid Dockerfile.
+
+Run:
+
+```bash
+docker compose config
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+All required services must appear and become healthy, including:
+
+* orchestrator;
+* document gateway;
+* document security filter;
+* OCR;
+* extraction;
+* terminology;
+* schema validation;
+* rules;
+* temporal reasoning;
+* drug interaction;
+* guideline retrieval;
+* safety;
+* referral drafting;
+* guardrail;
+* clinical workspace;
+* compliance dashboard;
+* metrics dashboard;
+* audit service;
+* IAM;
+* notification service;
+* FHIR integration;
+* failure queue;
+* PostgreSQL;
+* Redis;
+* Redpanda or Kafka;
+* Qdrant;
+* HAPI FHIR;
+* ClamAV.
+
+Do not omit a required service because it fails to build.
+
+# 18. Run real tests
+
+Run and report:
+
+```bash
+python -m compileall -q services shared tools scripts tests
+pytest -q
+pre-commit run --all-files
+docker compose config
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+Then run:
+
+* one successful complete clinical workflow;
+* one low-confidence extraction workflow;
+* one unmatched-patient quarantine workflow;
+* one no-guideline-evidence workflow;
+* one conflicting-guideline workflow;
+* one red-flag emergency workflow;
+* one rejected referral;
+* one failed FHIR write;
+* one unauthorized direct FHIR call;
+* one audit-chain tamper test;
+* one Qdrant-unavailable test;
+* one Lyzr-unavailable test;
+* one Kafka-unavailable test.
+
+Tests must mock only paid or unavailable external API boundaries in unit tests.
+
+The final integration evidence must use the real locally deployed stack wherever available.
+
+# 19. Final raw evidence
+
+After all corrections, paste the complete unedited output of:
+
+```bash
+git status --short
+git branch --show-current
+git rev-parse HEAD
+git diff --stat backup/completed-implementation-before-final-audit..HEAD
+git diff --name-only backup/completed-implementation-before-final-audit..HEAD
+git ls-files .env.example
+python scripts/quality/scan_secrets.py
+python scripts/quality/scan_forbidden_terms.py
+python scripts/quality/run_all_gates.py
+make security-scan
+make verify-no-runtime-fakes
+make contract-check
+make test-unit
+pre-commit run --all-files
+docker compose config --services
+docker compose build
+docker compose up -d
+docker compose ps
+python -m compileall -q services shared tools scripts tests
+pytest -q
+```
+
+Also provide:
+
+* changed-file list;
+* explanation of every changed file;
+* final `.env.example` with blank secrets;
+* final quality-gate results;
+* real Lyzr evidence;
+* real Qdrant evidence;
+* real clinician-approval evidence;
+* real FHIR write evidence;
+* correlated audit evidence;
+* frontend build evidence;
+* deployment health output;
+* exact remaining limitations.
+
+Do not state that the system is production-ready merely because tests pass.
+
+Use the wording:
+
+`Production-oriented hackathon implementation`
+
+unless every security, compliance, reliability and deployment requirement has been independently validated.
+
+Do not report the remediation complete when any mandatory command is skipped, suppressed, mocked or represented only by a written claim.
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-01T02:06:47+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\surya\habit tracker\client\.env (LANGUAGE_UNSPECIFIED)
+Cursor is on line: 7
+Other open documents:
+- c:\Users\surya\habit tracker\docs\month1-ai-engineer-roadmap.md (LANGUAGE_MARKDOWN)
+- c:\Users\surya\habit tracker\client\src\App.css (LANGUAGE_CSS)
+- c:\Users\surya\habit tracker\server\.env (LANGUAGE_UNSPECIFIED)
+- c:\Users\surya\habit tracker\tsconfig.base.json (LANGUAGE_JSON)
+- c:\Users\surya\habit tracker\.gitignore (LANGUAGE_UNSPECIFIED)
+No browser pages are currently open.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Gemini 3.6 Flash (High) to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

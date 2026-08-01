@@ -58,7 +58,7 @@ def test_clinician_rejection_routes_to_rejected_state_and_blocks_ehr_write():
 
     assert data["decision"] == "REJECTED"
     assert data["status"] == "rejected"
-    
+
     # 2. Verify status via findings endpoint
     findings_resp = client.get(f"/workspace/findings/{doc_id}", headers=headers)
     assert findings_resp.status_code == 200

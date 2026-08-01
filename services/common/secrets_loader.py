@@ -5,13 +5,13 @@ from pathlib import Path
 def get_secret(name: str, default: str | None = None) -> str:
     """
     Uniform secret loader across all ClinIntake services.
-    
+
     Resolution Order:
     1. Mounted Docker secret file at `/run/secrets/{name}` or `/run/secrets/{name.lower()}`
     2. Secret file in directory specified by `SECRETS_DIR` environment variable
     3. Environment variable `{name.upper()}`
     4. Default value (if provided)
-    
+
     Raises `RuntimeError` if the secret is missing and no default is provided.
     """
     # Check /run/secrets/

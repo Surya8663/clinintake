@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database schemas and tables on startup")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        
+
     # Seed initial registry if empty
     async with async_session() as session:
         result = await session.execute(select(Patient))
@@ -56,11 +56,11 @@ async def resolve_identity(req: ResolutionRequest, db: AsyncSession = Depends(ge
         f"Resolving patient identity for document: {req.document_id}",
         extra={"first_name": req.first_name, "last_name": req.last_name, "dob": req.date_of_birth}
     )
-    
+
     # 1. Fetch all patient records
     result = await db.execute(select(Patient))
     patients = result.scalars().all()
-    
+
     # 2. Run matching algorithm
     matched_patient, highest_score, candidate_logs = resolve_patient_identity(
         first_name=req.first_name,
@@ -68,7 +68,7 @@ async def resolve_identity(req: ResolutionRequest, db: AsyncSession = Depends(ge
         dob_str=req.date_of_birth,
         patients=list(patients)
     )
-    
+
     # 3. Handle Resolution Outcomes
     if matched_patient:
         logger.info(
@@ -81,17 +81,17 @@ async def resolve_identity(req: ResolutionRequest, db: AsyncSession = Depends(ge
             "confidence_score": highest_score,
             "candidates": candidate_logs
         }
-        
+
     # 4. Handle Quarantine (Confidence below threshold)
     logger.warning(
         f"Demographics match confidence too low. Quarantining document {req.document_id}",
         extra={"document_id": req.document_id, "score": highest_score}
     )
-    
+
     # Check if quarantine record already exists for this document
     q_result = await db.execute(select(QuarantineRecord).filter(QuarantineRecord.document_id == req.document_id))
     existing_q = q_result.scalar_one_or_none()
-    
+
     if not existing_q:
         quarantine = QuarantineRecord(
             document_id=req.document_id,
@@ -103,7 +103,7 @@ async def resolve_identity(req: ResolutionRequest, db: AsyncSession = Depends(ge
         )
         db.add(quarantine)
         await db.commit()
-    
+
     return {
         "status": "quarantined",
         "confidence_score": highest_score,
@@ -119,8 +119,8 @@ async def get_quarantine_queue(db: AsyncSession = Depends(get_db)):
 
 @app.post("/identity/quarantine/{document_id}/resolve")
 async def resolve_quarantine_item(
-    document_id: str, 
-    req: ResolveQuarantineRequest, 
+    document_id: str,
+    req: ResolveQuarantineRequest,
     db: AsyncSession = Depends(get_db)
 ):
     # Verify patient exists
@@ -128,17 +128,17 @@ async def resolve_quarantine_item(
     patient = p_result.scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=400, detail="Invalid patient_id. Target patient does not exist.")
-        
+
     # Verify quarantine item exists
     q_result = await db.execute(select(QuarantineRecord).filter(QuarantineRecord.document_id == document_id))
     record = q_result.scalar_one_or_none()
     if not record:
         raise HTTPException(status_code=404, detail="Quarantine record not found.")
-        
+
     record.status = "resolved"
     record.resolved_patient_id = req.patient_id
     await db.commit()
-    
+
     logger.info(
         f"Quarantined document {document_id} manually resolved to patient {req.patient_id}",
         extra={"document_id": document_id, "resolved_patient_id": req.patient_id}

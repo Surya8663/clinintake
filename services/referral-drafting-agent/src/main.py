@@ -22,7 +22,7 @@ async def health_check():
 async def draft_referral_letter(request: ReferralDraftRequest):
     """Generates a real draft referral letter grounded in Clinical Decision Package context."""
     logger.info(f"Received referral drafting request for document_id={request.document_id}")
-    
+
     if not request.document_id:
         raise HTTPException(status_code=400, detail="document_id must be provided")
 

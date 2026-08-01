@@ -74,13 +74,13 @@ def test_deliberately_invalid_fhir_resource_rejected():
             "fhir_resource": invalid_med_statement
         }
     )
-    
+
     # Must be rejected with HTTP 422 Unprocessable Entity
     assert response.status_code == 422
     data = response.json()
     assert data["is_valid"] is False
     assert len(data["issues"]) > 0
-    
+
     # Verify specific error detail for the missing 'medication' field
     issue = data["issues"][0]
     assert "medication" in issue["field"]

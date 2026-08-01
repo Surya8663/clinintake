@@ -22,7 +22,7 @@ def load_app_from_service(service_name: str):
 
     service_dir = REPO_ROOT / "services" / service_name
     service_path = service_dir / "src" / "main.py"
-    
+
     sys.path.insert(0, str(service_dir))
     spec = importlib.util.spec_from_file_location(f"{service_name.replace('-', '_')}.main", service_path)
     module = importlib.util.module_from_spec(spec)

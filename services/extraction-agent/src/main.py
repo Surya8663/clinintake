@@ -27,10 +27,10 @@ async def health_check():
 async def extract_clinical_data(request: ExtractRequest):
     """Performs Quote-Grounded extraction, FHIR R4 validation, and direct Emergency Safety Interrupt evaluation."""
     logger.info(f"Extracting clinical data for document_id={request.document_id}")
-    
+
     ocr_text = request.ocr_text or ""
     ocr_words = request.ocr_words or []
-    
+
     if not ocr_text:
         raise HTTPException(status_code=400, detail="ocr_text must be provided")
 

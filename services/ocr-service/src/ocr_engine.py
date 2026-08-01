@@ -91,14 +91,14 @@ def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
     """Processes PDF document using pypdf extraction with spatial coordinate calculation."""
     reader = pypdf.PdfReader(io.BytesIO(file_bytes))
     pages: list[OCRPage] = []
-    
+
     for page_idx, page in enumerate(reader.pages):
         page_number = page_idx + 1
         page_text = page.extract_text() or ""
-        
+
         words: list[OCRWord] = []
         lines: list[OCRLine] = []
-        
+
         raw_lines = [l for l in page_text.split('\n') if l.strip()]
         curr_y = 50
         for _l_idx, line_str in enumerate(raw_lines):
@@ -124,7 +124,7 @@ def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
                 line_words.append(w_obj)
                 words.append(w_obj)
                 curr_x += w_width + 6
-                
+
             line_bbox = BoundingBox(
                 x_min=min(w.bbox.x_min for w in line_words),
                 y_min=min(w.bbox.y_min for w in line_words),
@@ -137,7 +137,7 @@ def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
                 words=line_words
             ))
             curr_y += 30
-            
+
         pages.append(OCRPage(
             page_number=page_number,
             width=612,
@@ -146,5 +146,5 @@ def process_pdf_with_pypdf(file_bytes: bytes) -> list[OCRPage]:
             words=words,
             lines=lines
         ))
-        
+
     return pages

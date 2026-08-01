@@ -100,6 +100,6 @@ def test_idempotency_deduplication_suppresses_duplicate_transaction_as_no_op():
     resp2 = client.post("/fhir/write-transaction", json=payload, headers=headers)
     assert resp2.status_code == 200
     data2 = resp2.json()
-    
+
     assert data2["is_duplicate"] is True
     assert data2["fhir_bundle_id"] == bundle_id_1

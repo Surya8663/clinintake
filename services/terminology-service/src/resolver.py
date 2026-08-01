@@ -71,7 +71,7 @@ async def map_rxnorm_term(term: str) -> tuple[str | None, str | None, float, str
                         return rxcui, cand_name, round(min(score, 0.95), 2), "NLM_RxNav_Approximate"
     except Exception as e:
         logger.warning(f"NLM RxNav API request failed or timed out: {e}")
-        
+
     # Local fallback for offline/test environment with fuzzy matching for misspelled drug names
     clean_term = term.lower().strip()
     for key, (rxcui, name, conf) in CLINICAL_RXNORM_INDEX.items():
@@ -94,7 +94,7 @@ def map_snomed_term(term: str) -> tuple[str | None, str | None, float, str]:
     if clean_term in CLINICAL_SNOMED_INDEX:
         code, name, conf = CLINICAL_SNOMED_INDEX[clean_term]
         return code, name, conf, "SNOMED_CT_Index"
-        
+
     for key, (code, name, conf) in CLINICAL_SNOMED_INDEX.items():
         if key in clean_term or clean_term in key:
             return code, name, round(conf * 0.85, 2), "SNOMED_CT_Index"
@@ -115,7 +115,7 @@ def map_loinc_term(term: str) -> tuple[str | None, str | None, float, str]:
     if clean_term in CLINICAL_LOINC_INDEX:
         code, name, conf = CLINICAL_LOINC_INDEX[clean_term]
         return code, name, conf, "LOINC_Index"
-        
+
     for key, (code, name, conf) in CLINICAL_LOINC_INDEX.items():
         if key in clean_term or clean_term in key:
             return code, name, round(conf * 0.85, 2), "LOINC_Index"

@@ -12,11 +12,57 @@ from src.llm_client import (
     LLMUnavailableError,
     call_llm_extraction,
 )
-from src.models import LyzrFieldResponse
+from src.models import LyzrExtractionResponse, LyzrFieldResponse
+
+
+def test_unexpected_top_level_extraction_fields_rejected():
+    """Condition 1: Unexpected top-level fields are rejected by ConfigDict(extra='forbid')."""
+    raw_payload = {
+        "patient_id": {"value": "PAT-100", "literal_quote": "PAT-100", "confidence": 0.9},
+        "diagnoses": [],
+        "medications": [],
+        "labs": [],
+        "unexpected_extra_field": "forbidden_data",  # Forbidden extra field
+    }
+    with pytest.raises(ValidationError):
+        LyzrExtractionResponse.model_validate(raw_payload)
+
+
+def test_unexpected_nested_extraction_fields_rejected():
+    """Condition 2: Unexpected nested fields in GroundedField are rejected by ConfigDict(extra='forbid')."""
+    raw_field = {
+        "value": "PAT-100",
+        "literal_quote": "PAT-100",
+        "confidence": 0.9,
+        "unexpected_nested_field": "forbidden",
+    }
+    with pytest.raises(ValidationError):
+        LyzrFieldResponse.model_validate(raw_field)
+
+
+def test_supported_value_with_empty_literal_quote_rejected():
+    """Condition 3: Non-empty supported value with empty literal_quote is rejected."""
+    raw_field = {
+        "value": "Essential Hypertension",
+        "literal_quote": "",  # Empty quote
+        "confidence": 0.9,
+    }
+    with pytest.raises(ValidationError):
+        LyzrFieldResponse.model_validate(raw_field)
+
+
+def test_empty_value_with_nonzero_confidence_rejected():
+    """Condition 4: Empty value ('') with non-zero confidence (e.g. 0.8) is rejected."""
+    raw_field = {
+        "value": "",
+        "literal_quote": "",
+        "confidence": 0.8,  # Must be 0.0 for empty value
+    }
+    with pytest.raises(ValidationError):
+        LyzrFieldResponse.model_validate(raw_field)
 
 
 def test_confidence_below_0_or_above_1_rejected():
-    """Condition 6: Confidence below 0.0 or above 1.0 is rejected by schema validator."""
     with pytest.raises(ValidationError):
         LyzrFieldResponse(value="Test", literal_quote="Test", confidence=1.5)
 
@@ -25,11 +71,10 @@ def test_confidence_below_0_or_above_1_rejected():
 
 
 def test_malformed_nested_extraction_data_rejected():
-    """Condition 7: Malformed nested extraction structure raises LLMInvalidResponseError."""
     ocr_text = "Patient ID: PAT-123. Diagnosis: Hypertension."
     malformed_json_response = {
-        "patient_id": "PAT-123",  # Invalid: Should be dict with value, literal_quote, confidence
-        "diagnoses": "Hypertension",  # Invalid: Should be list of dicts
+        "patient_id": "PAT-123",
+        "diagnoses": "Hypertension",
     }
 
     mock_resp = MagicMock()
@@ -42,7 +87,6 @@ def test_malformed_nested_extraction_data_rejected():
 
 
 def test_http_429_and_5xx_retry_only_up_to_configured_limit():
-    """Condition 8: HTTP 429 and 5xx errors retry up to lyzr_max_retries before failing."""
     ocr_text = "Patient ID: PAT-100"
 
     mock_500_resp = MagicMock()
@@ -50,16 +94,14 @@ def test_http_429_and_5xx_retry_only_up_to_configured_limit():
     mock_500_resp.text = "Internal Server Error"
 
     with patch("httpx.Client.post", return_value=mock_500_resp) as mock_post:
-        with patch("time.sleep"):  # Speed up tests
+        with patch("time.sleep"):
             with pytest.raises(LLMServiceError):
                 call_llm_extraction(ocr_text=ocr_text)
 
-    # Initial attempt + 2 retries (lyzr_max_retries=2 in conftest) = 3 total calls
     assert mock_post.call_count == 3
 
 
 def test_http_4xx_is_not_retried():
-    """Condition 9: HTTP 400 client request error is NOT retried."""
     ocr_text = "Patient ID: PAT-100"
 
     mock_400_resp = MagicMock()
@@ -70,5 +112,4 @@ def test_http_4xx_is_not_retried():
         with pytest.raises(LLMRequestError):
             call_llm_extraction(ocr_text=ocr_text)
 
-    # Must fail immediately after 1 attempt
     assert mock_post.call_count == 1

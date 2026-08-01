@@ -1,6 +1,20 @@
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class LyzrCitationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_title: str = Field(..., min_length=1)
+    clause_id: str = Field(..., min_length=1)
+
+
+class LyzrExplanationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    explanation_summary: str = Field(..., min_length=1)
+    citations_used: List[LyzrCitationResponse] = Field(default_factory=list)
 
 
 class ClinicalDecisionPackage(BaseModel):
@@ -19,17 +33,17 @@ class CitationItem(BaseModel):
     section: str
     clause_id: str
     passage_text: str
-    similarity_score: float
+    similarity_score: Optional[float] = None
 
 
 class GuidelinePassage(BaseModel):
-    clause_id: str
+    clause_id: str = Field(..., min_length=1)
     source: str = ""
     source_title: str = ""
     version: str = ""
     section: str = ""
     passage_text: str = ""
-    similarity_score: float = 0.0
+    similarity_score: Optional[float] = None
 
 
 class DocumentSpanItem(BaseModel):

@@ -5,8 +5,12 @@ import sys
 from pathlib import Path
 
 
-def run_service_tests(service_dir: Path) -> tuple[int, int, str]:
-    """Runs pytest for a specific service directory in an isolated Python subprocess with custom PYTHONPATH."""
+def run_service_tests(service_dir: Path) -> tuple[int, int, int, str]:
+    """
+    Runs pytest for a specific service directory in an isolated Python subprocess.
+    Returns (returncode, passed_count, failed_count, full_output).
+    Uses subprocess returncode as the absolute source of truth.
+    """
     env = os.environ.copy()
     env["PYTHONPATH"] = str(service_dir)
 
@@ -15,10 +19,12 @@ def run_service_tests(service_dir: Path) -> tuple[int, int, str]:
 
     result = subprocess.run(cmd, cwd=str(Path(__file__).parent.parent), env=env, capture_output=True, text=True)
 
+    returncode = result.returncode
     passed = 0
     failed = 0
 
-    # Parse passed/failed counts from pytest output
+    full_output = f"--- STDOUT ---\n{result.stdout}\n--- STDERR ---\n{result.stderr}"
+
     for line in result.stdout.splitlines():
         if " passed" in line or " failed" in line:
             m_pass = re.search(r"(\d+) passed", line)
@@ -28,7 +34,7 @@ def run_service_tests(service_dir: Path) -> tuple[int, int, str]:
             if m_fail:
                 failed = int(m_fail.group(1))
 
-    return passed, failed, result.stdout + "\n" + result.stderr
+    return returncode, passed, failed, full_output
 
 
 def main():
@@ -51,29 +57,35 @@ def main():
 
     for name, path in services:
         print(f"Running test suite for {name}...")
-        passed, failed, output = run_service_tests(path)
+        returncode, passed, failed, output = run_service_tests(path)
+
         total_passed += passed
         total_failed += failed
-        status = "PASSED" if failed == 0 and passed > 0 else "FAILED"
-        if failed > 0 or passed == 0:
+
+        # Returncode is the absolute source of truth
+        if returncode != 0 or passed == 0:
+            status = "FAILED"
             has_failure = True
-        service_results.append((name, passed, failed, status, output))
-        print(f"  Result: {status} ({passed} passed, {failed} failed)")
+        else:
+            status = "PASSED"
+
+        service_results.append((name, returncode, passed, failed, status, output))
+        print(f"  Result: {status} (exit code: {returncode}, {passed} passed, {failed} failed)")
 
     print("=" * 70)
     print("SUMMARY BY SERVICE:")
     print("-" * 70)
-    for name, passed, failed, status, output in service_results:
-        print(f"  - {name:<36}: {passed:>3} passed, {failed:>3} failed [{status}]")
+    for name, returncode, passed, failed, status, output in service_results:
+        print(f"  - {name:<36}: exit code {returncode}, {passed:>3} passed, {failed:>3} failed [{status}]")
     print("-" * 70)
     print(f"TOTAL AGGREGATED TESTS: {total_passed} passed, {total_failed} failed")
     print("=" * 70)
 
     if has_failure:
         print("\nFAILURE DETAILS:")
-        for name, passed, failed, status, output in service_results:
-            if failed > 0:
-                print(f"\n--- Output for {name} ---")
+        for name, returncode, passed, failed, status, output in service_results:
+            if returncode != 0 or status == "FAILED":
+                print(f"\n==================== FULL OUTPUT FOR {name} (EXIT CODE {returncode}) ====================")
                 print(output)
         sys.exit(1)
     else:

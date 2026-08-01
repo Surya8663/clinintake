@@ -1,14 +1,14 @@
 import os
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 
 os.environ["LYZR_API_KEY"] = "test_lyzr_api_key_2026"
-os.environ["LLM_API_KEY"] = "test_llm_api_key_2026"
+os.environ["LYZR_BASE_URL"] = "https://api.lyzr.ai"
+os.environ["LYZR_REFERRAL_AGENT_ID"] = "agent_ref_test_id"
 
 from src.drafting_engine import generate_referral_draft_letter
-from src.models import ReferralDraftRequest
+from src.models import LyzrEvidenceRefResponse, LyzrReferralResponse, ReferralDraftRequest
 
 SAMPLE_REFERRAL_REQUEST = ReferralDraftRequest(
     document_id="DOC-LLM-REF-001",
@@ -51,16 +51,24 @@ SAMPLE_EMERGENCY_REQUEST = ReferralDraftRequest(
 
 def test_real_llm_referral_letter_drafting():
     """Generates a referral letter and verifies request payload sent to external boundary."""
-    mock_letter = (
-        "CLINICAL REFERRAL LETTER\n"
-        "Date: 2026-08-01\n"
-        "To: Department of Cardiology\n"
-        "Re: Patient PAT-CARD-881\n\n"
-        "Dear Specialist,\n"
-        "Referring patient for Cardiology evaluation."
+    mock_typed_response = LyzrReferralResponse(
+        referral_letter_text=(
+            "CLINICAL REFERRAL LETTER\n"
+            "Date: 2026-08-01\n"
+            "To: Department of Cardiology\n"
+            "Re: Patient PAT-CARD-881\n\n"
+            "Dear Specialist,\n"
+            "Referring patient for Cardiology evaluation."
+        ),
+        evidence_refs_used=[
+            LyzrEvidenceRefResponse(
+                clause_id="ACC-HTN-2023-04",
+                source_quote="Adults with Stage 2 hypertension and elevated cardiovascular risk should be referred for specialist evaluation and dual antihypertensive therapy.",
+            )
+        ],
     )
 
-    with patch("src.drafting_engine.call_llm_referral_draft", return_value=mock_letter):
+    with patch("src.drafting_engine.call_llm_referral_draft", return_value=mock_typed_response):
         response = generate_referral_draft_letter(SAMPLE_REFERRAL_REQUEST)
 
         assert response.document_id == "DOC-LLM-REF-001"
@@ -77,14 +85,22 @@ def test_real_llm_referral_letter_drafting():
 
 def test_deterministic_urgency_classification_preserved():
     """Verifies that safety red flags deterministically set urgency_level='EMERGENCY'."""
-    mock_letter = (
-        "EMERGENCY REFERRAL LETTER\n"
-        "To: Department of Cardiology\n"
-        "Re: Patient PAT-EMERG-999\n\n"
-        "Emergency referral due to severe retrosternal chest pain."
+    mock_typed_response = LyzrReferralResponse(
+        referral_letter_text=(
+            "EMERGENCY REFERRAL LETTER\n"
+            "To: Department of Cardiology\n"
+            "Re: Patient PAT-EMERG-999\n\n"
+            "Emergency referral due to severe retrosternal chest pain."
+        ),
+        evidence_refs_used=[
+            LyzrEvidenceRefResponse(
+                clause_id="EMERG-ACS-01",
+                source_quote="Immediate cardiology referral and ED transfer for persistent ischemic chest pain with ST changes.",
+            )
+        ],
     )
 
-    with patch("src.drafting_engine.call_llm_referral_draft", return_value=mock_letter):
+    with patch("src.drafting_engine.call_llm_referral_draft", return_value=mock_typed_response):
         response = generate_referral_draft_letter(SAMPLE_EMERGENCY_REQUEST)
 
         assert response.urgency_level == "EMERGENCY"

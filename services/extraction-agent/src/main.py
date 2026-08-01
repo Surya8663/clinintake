@@ -1,8 +1,10 @@
 import time
+from typing import Any, List, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from src.config import settings
 from src.extractor import perform_quote_grounded_extraction
@@ -37,7 +39,25 @@ class SafetyServiceError(Exception):
 
 
 class SafetyInvalidResponseError(Exception):
-    """Raised when Safety Sub-Agent returns a malformed or invalid response payload."""
+    """Raised when Safety Sub-Agent returns a malformed, mismatched, or incomplete response payload."""
+
+
+class SafetyEvaluateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: str = Field(..., min_length=1)
+    is_emergency: bool = Field(...)
+    assessment_status: Literal["complete", "incomplete"] = Field(...)
+    red_flags: List[dict[str, Any]] = Field(default_factory=list)
+    rationale: str = Field(..., min_length=1)
+    latency_ms: float = Field(..., ge=0.0)
+
+    @field_validator("is_emergency", mode="before")
+    @classmethod
+    def validate_strict_bool(cls, v: Any) -> bool:
+        if not isinstance(v, bool):
+            raise ValueError(f"is_emergency must be a strict boolean (bool), got {type(v).__name__} ({v!r})")
+        return v
 
 
 app = FastAPI(title=settings.service_name, description="Quote-Grounded LLM Extraction Agent with FHIR R4 Validation and Direct Emergency Safety Interrupt", version="1.0.0")
@@ -116,11 +136,7 @@ async def extract_clinical_data(request: ExtractRequest):
 
     overall_confidence = round(sum(scores) / max(len(scores), 1), 2)
 
-    # Direct Emergency Safety Interrupt Evaluation (Fail Closed — No local keyword fallbacks)
-    safety_triggered = False
-    safety_res = None
-    latency_ms = 0.0
-
+    # Direct Emergency Safety Interrupt Evaluation (Fail Closed — Strict Contract Validation)
     start_safety = time.time()
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
@@ -134,15 +150,29 @@ async def extract_clinical_data(request: ExtractRequest):
             latency_ms = round((time.time() - start_safety) * 1000.0, 2)
             if resp.status_code == 200:
                 try:
-                    safety_res = resp.json()
+                    raw_safety = resp.json()
                 except Exception as json_err:
                     raise SafetyInvalidResponseError("Safety Sub-Agent returned malformed JSON payload") from json_err
 
-                if not isinstance(safety_res, dict):
-                    raise SafetyInvalidResponseError("Safety Sub-Agent response is not a JSON object")
+                # Validate against strict SafetyEvaluateResponse schema (extra="forbid", strict bool)
+                try:
+                    typed_safety = SafetyEvaluateResponse.model_validate(raw_safety)
+                except ValidationError as val_err:
+                    raise SafetyInvalidResponseError(f"Safety Sub-Agent response schema validation failed: {val_err}") from val_err
 
-                safety_triggered = bool(safety_res.get("is_emergency", False))
-                logger.info(f"Direct Emergency Safety Interrupt evaluation finished in {latency_ms}ms: is_emergency={safety_triggered}")
+                # Document ID contract check
+                if typed_safety.document_id != request.document_id:
+                    raise SafetyInvalidResponseError(
+                        f"Safety evaluation document_id mismatch: expected '{request.document_id}', got '{typed_safety.document_id}'"
+                    )
+
+                # Assessment completeness check
+                if typed_safety.assessment_status == "incomplete" and not typed_safety.is_emergency:
+                    raise SafetyInvalidResponseError("Safety Sub-Agent assessment status is incomplete")
+
+                logger.info(f"Direct Emergency Safety Interrupt evaluation finished in {latency_ms}ms: is_emergency={typed_safety.is_emergency}")
+                safety_triggered = typed_safety.is_emergency
+                safety_res = typed_safety.model_dump()
             elif 400 <= resp.status_code < 500:
                 raise SafetyRequestError(f"Safety Sub-Agent returned HTTP client error {resp.status_code}: {resp.text}")
             else:

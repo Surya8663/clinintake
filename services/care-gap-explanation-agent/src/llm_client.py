@@ -3,9 +3,11 @@ import time
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from src.config import settings
 from src.logger import logger
+from src.models import LyzrExplanationResponse
 
 
 class LLMRequestError(Exception):
@@ -29,7 +31,7 @@ class LLMUnavailableError(Exception):
 
 
 class LLMInvalidResponseError(Exception):
-    """Raised when the LLM returns invalid JSON or unparsable structure."""
+    """Raised when the LLM returns invalid JSON, unparsable structure, or extra forbidden fields."""
 
 
 EXPLANATION_SYSTEM_PROMPT = """You are a clinical care-gap explanation engine. You receive a structured Clinical Decision Package containing:
@@ -58,7 +60,7 @@ Return a JSON object with this exact schema:
   ]
 }
 
-Return ONLY the JSON object. No markdown, no commentary."""
+Return ONLY the JSON object. No extra fields, no markdown, no commentary."""
 
 
 def call_llm_explanation(
@@ -69,9 +71,10 @@ def call_llm_explanation(
     document_id: str,
     patient_id: str = None,
     correction_instruction: str = None,
-) -> dict[str, Any]:
+) -> LyzrExplanationResponse:
     """
-    Calls the configured Lyzr Explanation Agent with Responsible AI governance and exponential retries.
+    Calls the configured Lyzr Explanation Agent with Responsible AI governance and validates
+    against strict LyzrExplanationResponse schema (extra="forbid").
     """
     api_key = settings.lyzr_api_key
     if not api_key or api_key in ("MISSING", "INVALID_CREDENTIALS"):
@@ -83,7 +86,7 @@ def call_llm_explanation(
 
     context = {
         "document_id": document_id,
-        "patient_id": patient_id or "Unknown",
+        "patient_id": patient_id if patient_id else None,
         "care_gaps_found": care_gaps_found,
         "guideline_passages": guideline_passages,
         "safety_assessment": safety_assessment,
@@ -114,14 +117,21 @@ def call_llm_explanation(
                 res = client.post(url, json={"prompt": user_prompt, "system_prompt": EXPLANATION_SYSTEM_PROMPT}, headers={"x-api-key": api_key, "Content-Type": "application/json"})
                 if res.status_code == 200:
                     raw_data = res.json()
+                    parsed = None
                     if "response" in raw_data and isinstance(raw_data["response"], dict):
-                        return raw_data["response"]
+                        parsed = raw_data["response"]
                     elif "response" in raw_data and isinstance(raw_data["response"], str):
-                        return json.loads(raw_data["response"])
+                        parsed = json.loads(raw_data["response"])
                     elif isinstance(raw_data, dict):
-                        return raw_data
-                    else:
+                        parsed = raw_data
+
+                    if not parsed or not isinstance(parsed, dict):
                         raise LLMInvalidResponseError("Lyzr Explanation Agent returned unexpected payload format.")
+
+                    try:
+                        return LyzrExplanationResponse.model_validate(parsed)
+                    except ValidationError as val_err:
+                        raise LLMInvalidResponseError(f"Lyzr Explanation Agent response schema validation failed: {val_err}") from val_err
 
                 elif res.status_code == 429:
                     last_exception = LLMRateLimitError("Lyzr Explanation Agent rate limit exceeded (HTTP 429)")

@@ -3,9 +3,11 @@ import time
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from src.config import settings
 from src.logger import logger
+from src.models import LyzrReferralResponse
 
 
 class LLMRequestError(Exception):
@@ -29,7 +31,7 @@ class LLMUnavailableError(Exception):
 
 
 class LLMInvalidResponseError(Exception):
-    """Raised when the referral drafting response is invalid JSON or empty."""
+    """Raised when the referral drafting response is invalid JSON, missing required fields, or has extra fields."""
 
 
 REFERRAL_DRAFT_SYSTEM_PROMPT = """You are an expert clinical referral documentation agent.
@@ -37,23 +39,32 @@ Your task is to draft a formal, professional, natural-language clinical referral
 
 RULES:
 1. Grounding: You must ONLY refer to the patient ID, target specialty, urgency level, clinical reasons, and guideline evidence explicitly provided in the user prompt. Do NOT invent unsubstantiated patient symptoms, diagnoses, or guideline citations.
-2. Tone & Structure: Write a standard, formal medical referral letter appropriate for clinical practice:
-   - Header (Date, To: Department of [Specialty], Re: Patient ID, Urgency Level)
-   - Formal opening salutation (e.g. "Dear Specialist,")
-   - Clear statement of referral purpose and clinical rationale based on the provided reasons
-   - Citation of clinical guideline evidence supporting the referral (referencing provided section, clause ID, and quote)
-   - Professional closing and sign-off
+2. Tone & Structure: Write a standard, formal medical referral letter appropriate for clinical practice.
 3. Formatting: Return a JSON object with this exact schema:
 {
-  "referral_letter_text": "The full text of the clinical referral letter..."
+  "referral_letter_text": "The full text of the clinical referral letter...",
+  "evidence_refs_used": [
+    {
+      "clause_id": "exact clause_id from input evidence",
+      "source_quote": "exact source_quote from input evidence"
+    }
+  ]
 }
 
-Return ONLY the JSON object. No markdown wrapping outside JSON, no extra commentary."""
+Return ONLY the JSON object. No extra fields, no markdown wrapping outside JSON, no extra commentary."""
 
 
-def call_llm_referral_draft(patient_id: str, target_specialty: str, urgency_level: str, clinical_reasons: list[str], evidence_items: list[dict[str, Any]], document_id: str) -> str:
+def call_llm_referral_draft(
+    patient_id: str,
+    target_specialty: str,
+    urgency_level: str,
+    clinical_reasons: list[str],
+    evidence_items: list[dict[str, Any]],
+    document_id: str,
+) -> LyzrReferralResponse:
     """
-    Calls the configured Lyzr Referral Agent with Responsible AI governance and exponential retries.
+    Calls the configured Lyzr Referral Agent with Responsible AI governance and validates against
+    strict LyzrReferralResponse schema (extra="forbid").
     """
     api_key = settings.lyzr_api_key
     if not api_key or api_key in ("MISSING", "INVALID_CREDENTIALS"):
@@ -94,19 +105,21 @@ def call_llm_referral_draft(patient_id: str, target_specialty: str, urgency_leve
                 res = client.post(url, json={"prompt": user_prompt, "system_prompt": REFERRAL_DRAFT_SYSTEM_PROMPT}, headers={"x-api-key": api_key, "Content-Type": "application/json"})
                 if res.status_code == 200:
                     raw_data = res.json()
-                    text = ""
+                    parsed = None
                     if "response" in raw_data and isinstance(raw_data["response"], dict):
-                        text = raw_data["response"].get("referral_letter_text", "")
+                        parsed = raw_data["response"]
                     elif "response" in raw_data and isinstance(raw_data["response"], str):
                         parsed = json.loads(raw_data["response"])
-                        text = parsed.get("referral_letter_text", "")
                     elif isinstance(raw_data, dict):
-                        text = raw_data.get("referral_letter_text", "")
+                        parsed = raw_data
 
-                    if not text:
-                        raise LLMInvalidResponseError("Lyzr Referral Agent response missing 'referral_letter_text'")
+                    if not parsed or not isinstance(parsed, dict):
+                        raise LLMInvalidResponseError("Lyzr Referral Agent returned unexpected payload format.")
 
-                    return text
+                    try:
+                        return LyzrReferralResponse.model_validate(parsed)
+                    except ValidationError as val_err:
+                        raise LLMInvalidResponseError(f"Lyzr Referral Agent response schema validation failed: {val_err}") from val_err
 
                 elif res.status_code == 429:
                     last_exception = LLMRateLimitError("Lyzr Referral Agent rate limit exceeded (HTTP 429)")

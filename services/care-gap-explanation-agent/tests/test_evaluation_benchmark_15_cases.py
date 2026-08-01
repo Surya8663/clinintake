@@ -9,6 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from src.main import app
+from src.models import LyzrCitationResponse, LyzrExplanationResponse
 
 client = TestClient(app)
 
@@ -18,9 +19,13 @@ def mock_llm_explanation_boundary():
     def mock_call(care_gaps_found, guideline_passages, safety_assessment, drug_interactions, document_id, patient_id=None, correction_instruction=None):
         citations = []
         for g in guideline_passages:
-            citations.append({"source_title": g.get("source", ""), "clause_id": g.get("clause_id", "")})
+            src = g.get("source_title", g.get("source", ""))
+            cls_id = g.get("clause_id", "")
+            if src and cls_id:
+                citations.append(LyzrCitationResponse(source_title=src, clause_id=cls_id))
+
         summary_text = f"Care-gap analysis for {document_id}: " + "; ".join(care_gaps_found if care_gaps_found else ["Evaluation completed."])
-        return {"explanation_summary": summary_text, "citations_used": citations}
+        return LyzrExplanationResponse(explanation_summary=summary_text, citations_used=citations)
 
     with patch("src.llm_client.call_llm_explanation", side_effect=mock_call):
         yield
@@ -46,6 +51,7 @@ def test_case_01_digital_pdf_extraction():
         guideline_passages=[
             {
                 "source": "USPSTF CRC 2021",
+                "source_title": "USPSTF CRC 2021",
                 "version": "2021",
                 "section": "Recommendation",
                 "clause_id": "USPSTF-CRC-2021-01",
@@ -70,6 +76,7 @@ def test_case_02_scanned_pdf_ocr_fallback():
         guideline_passages=[
             {
                 "source": "USPSTF Breast Cancer 2024",
+                "source_title": "USPSTF Breast Cancer 2024",
                 "version": "2024",
                 "section": "Recommendation",
                 "clause_id": "USPSTF-BREAST-2024-01",
@@ -107,6 +114,7 @@ def test_case_05_missed_screening_gap():
         guideline_passages=[
             {
                 "source": "USPSTF CRC 2021",
+                "source_title": "USPSTF CRC 2021",
                 "version": "2021",
                 "section": "Recommendation",
                 "clause_id": "USPSTF-CRC-2021-01",
@@ -129,6 +137,7 @@ def test_case_06_no_care_gap():
         guideline_passages=[
             {
                 "source": "USPSTF CRC 2021",
+                "source_title": "USPSTF CRC 2021",
                 "version": "2021",
                 "section": "Recommendation",
                 "clause_id": "USPSTF-CRC-2021-01",
@@ -164,6 +173,7 @@ def test_case_09_conflicting_guidelines():
         guideline_passages=[
             {
                 "source": "USPSTF Statin 2022",
+                "source_title": "USPSTF Statin 2022",
                 "version": "2022",
                 "section": "Recommendation",
                 "clause_id": "USPSTF-STATIN-2022-01",
@@ -172,6 +182,7 @@ def test_case_09_conflicting_guidelines():
             },
             {
                 "source": "ACC/AHA Cardiovascular 2023",
+                "source_title": "ACC/AHA Cardiovascular 2023",
                 "version": "2023",
                 "section": "Recommendation",
                 "clause_id": "ACC-AHA-CVD-2023-01",
@@ -200,6 +211,7 @@ def test_case_11_overdue_followup():
         guideline_passages=[
             {
                 "source": "ADA Standards 2024",
+                "source_title": "ADA Standards 2024",
                 "version": "2024",
                 "section": "Monitoring",
                 "clause_id": "ADA-2024-HBA1C-01",
@@ -239,6 +251,7 @@ def test_case_14_hallucinated_citation_rejected():
         guideline_passages=[
             {
                 "source": "USPSTF CRC 2021",
+                "source_title": "USPSTF CRC 2021",
                 "version": "2021",
                 "section": "Recommendation",
                 "clause_id": real_clause_id,

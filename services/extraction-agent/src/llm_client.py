@@ -31,7 +31,7 @@ class LLMUnavailableError(Exception):
 
 
 class LLMInvalidResponseError(Exception):
-    """Raised when the LLM returns malformed JSON, unparsable structure, or ungrounded literal quotes."""
+    """Raised when the LLM returns malformed JSON, unparsable structure, unexpected extra fields, or ungrounded quotes."""
 
 
 class LLMGovernanceViolationError(Exception):
@@ -69,70 +69,56 @@ Rules:
 - If a patient_id cannot be found at all, set value to "" and confidence to 0.0.
 - The literal_quote must be a verbatim substring of the input OCR text. Never fabricate or paraphrase it.
 - For ICD-10, RxNorm, or LOINC codes: extract them from the text if present. If a code is not stated in the text, set value to "" and confidence to 0.0.
-- Return ONLY the JSON object. No markdown, no commentary."""
+- Return ONLY the JSON object. No extra fields, no markdown, no commentary."""
 
 
 def _build_user_prompt(ocr_text: str, ocr_words: list[dict[str, Any]] | None = None) -> str:
-    """Constructs the user prompt with OCR text and optional word-level bounding box context."""
     prompt = f"Extract all clinical entities from this OCR text:\n\n---\n{ocr_text}\n---"
     if ocr_words:
-        word_summary = [
-            {"text": w.get("text", ""), "bbox": w.get("bbox", {})}
-            for w in ocr_words[:200]
-        ]
+        word_summary = [{"text": w.get("text", ""), "bbox": w.get("bbox", {})} for w in ocr_words[:200]]
         prompt += f"\n\nWord-level bounding box data (for spatial grounding):\n{json.dumps(word_summary, indent=None)}"
     return prompt
 
 
-def _validate_extraction_schema(raw_dict: dict[str, Any], ocr_text: str) -> dict[str, Any]:
-    """Validates top-level and nested structure, finite float confidence bounds, and literal quote substring matching."""
+def _validate_and_parse_response_model(raw_dict: dict[str, Any], ocr_text: str) -> LyzrExtractionResponse:
+    """Validates raw dictionary against strict LyzrExtractionResponse model and checks quote exact substring grounding."""
     try:
-        validated_model = LyzrExtractionResponse.model_validate(raw_dict)
+        model_obj = LyzrExtractionResponse.model_validate(raw_dict)
     except ValidationError as val_err:
         raise LLMInvalidResponseError(f"Extraction response schema validation failed: {val_err}") from val_err
 
-    model_dict = validated_model.model_dump()
+    # Check literal quote substring grounding against OCR text
+    fields_to_check = [("patient_id", model_obj.patient_id)]
 
-    # Verify literal_quote is an exact substring of OCR text for all supported values
-    fields_to_check = [("patient_id", model_dict.get("patient_id"))]
+    for diag in model_obj.diagnoses:
+        fields_to_check.append(("diagnosis.name", diag.name))
+        fields_to_check.append(("diagnosis.icd10_code", diag.icd10_code))
 
-    for diag in model_dict.get("diagnoses", []):
-        fields_to_check.append(("diagnosis.name", diag.get("name")))
-        fields_to_check.append(("diagnosis.icd10_code", diag.get("icd10_code")))
+    for med in model_obj.medications:
+        fields_to_check.append(("medication.name", med.name))
+        fields_to_check.append(("medication.rxnorm_code", med.rxnorm_code))
+        fields_to_check.append(("medication.dosage", med.dosage))
 
-    for med in model_dict.get("medications", []):
-        fields_to_check.append(("medication.name", med.get("name")))
-        fields_to_check.append(("medication.rxnorm_code", med.get("rxnorm_code")))
-        fields_to_check.append(("medication.dosage", med.get("dosage")))
+    for lab in model_obj.labs:
+        fields_to_check.append(("lab.name", lab.name))
+        fields_to_check.append(("lab.loinc_code", lab.loinc_code))
+        fields_to_check.append(("lab.value", lab.value))
 
-    for lab in model_dict.get("labs", []):
-        fields_to_check.append(("lab.name", lab.get("name")))
-        fields_to_check.append(("lab.loinc_code", lab.get("loinc_code")))
-        fields_to_check.append(("lab.value", lab.get("value")))
-
-    for label, field_obj in fields_to_check:
-        if not field_obj:
-            continue
-        val = str(field_obj.get("value", "")).strip()
-        quote = str(field_obj.get("literal_quote", "")).strip()
-        if val and val.lower() not in ("incomplete", "unknown", "pat-unknown"):
-            # Check quote presence in OCR text
-            if quote and quote not in ocr_text:
+    for label, field in fields_to_check:
+        val = field.value.strip()
+        quote = field.literal_quote.strip()
+        if val:
+            if quote not in ocr_text:
                 raise LLMInvalidResponseError(f"Grounded field '{label}' literal quote '{quote}' is not an exact substring of input OCR text.")
 
-            # Code field validation: code cannot be accepted if literal quote is absent or not in OCR
-            if ("code" in label or "rxnorm" in label or "loinc" in label or "icd10" in label) and not quote:
-                raise LLMInvalidResponseError(f"Code field '{label}' value '{val}' missing required verbatim literal quote.")
-
-    return model_dict
+    return model_obj
 
 
-def call_llm_extraction(ocr_text: str, ocr_words: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def call_llm_extraction(ocr_text: str, ocr_words: list[dict[str, Any]] | None = None) -> LyzrExtractionResponse:
     """
-    Calls the configured Lyzr Extraction Agent with Responsible AI governance, strict schema validation,
-    and exponential backoff retries for retryable network/status errors.
+    Calls the configured Lyzr Extraction Agent with Responsible AI governance, strict ConfigDict(extra="forbid")
+    schema validation, and returns a typed LyzrExtractionResponse.
     """
-    # 1. Responsible AI Policy Check: Prompt Injection
     if "ignore previous instructions" in ocr_text.lower() or "system prompt:" in ocr_text.lower():
         logger.warning("[LYZR GOVERNANCE] Prompt injection attempt detected by Lyzr Policy in OCR text.")
         raise LLMGovernanceViolationError("LYZR_POLICY_VIOLATION: Prompt injection detected by Lyzr Policy.")
@@ -153,7 +139,6 @@ def call_llm_extraction(ocr_text: str, ocr_words: list[dict[str, Any]] | None = 
 
     max_retries = settings.lyzr_max_retries
     timeout_sec = settings.lyzr_request_timeout
-
     last_exception = None
 
     for attempt in range(max_retries + 1):
@@ -178,7 +163,7 @@ def call_llm_extraction(ocr_text: str, ocr_words: list[dict[str, Any]] | None = 
                     if not parsed or not isinstance(parsed, dict):
                         raise LLMInvalidResponseError("Lyzr response is not a valid JSON dictionary")
 
-                    return _validate_extraction_schema(parsed, ocr_text)
+                    return _validate_and_parse_response_model(parsed, ocr_text)
 
                 elif res.status_code == 429:
                     last_exception = LLMRateLimitError("Lyzr API rate limit exceeded (HTTP 429)")

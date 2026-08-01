@@ -199,3 +199,18 @@ def test_lyzr_malformed_response_rejected():
     with patch.object(httpx.Client, "post", return_value=mock_resp):
         with pytest.raises(LyzrInvalidResponseError):
             lyzr_client.start_superflow_execution("sf_test_2026", "DOC-004", {"file_path": "/test.pdf"})
+
+
+def test_test_runner_exits_nonzero_for_synthetic_pytest_collection_error(tmp_path):
+    """Condition 15: Test runner exits non-zero when pytest encounters a synthetic collection/syntax error."""
+    from scripts.run_blocker1_tests import run_service_tests
+
+    bad_service = tmp_path / "bad_service"
+    bad_tests = bad_service / "tests"
+    bad_tests.mkdir(parents=True)
+
+    bad_file = bad_tests / "test_broken_syntax.py"
+    bad_file.write_text("def test_broken():\n    this is bad syntax !!!")
+
+    returncode, passed, failed, output = run_service_tests(bad_service)
+    assert returncode != 0
